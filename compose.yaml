@@ -1,0 +1,32 @@
+services:
+  web:
+    build:
+      context: .
+      args:
+        DOMAIN: ${DOMAIN:?Nastavte DOMAIN v souboru .env}
+    restart: unless-stopped
+    environment:
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-redakce}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?Nastavte ADMIN_PASSWORD v souboru .env}
+    volumes:
+      - content:/app/data
+
+  proxy:
+    image: caddy:2
+    restart: unless-stopped
+    depends_on:
+      - web
+    environment:
+      DOMAIN: ${DOMAIN:?Nastavte DOMAIN v souboru .env}
+    ports:
+      - '80:80'
+      - '443:443'
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - certificates:/data
+      - caddy_config:/config
+
+volumes:
+  content:
+  certificates:
+  caddy_config:

@@ -1,17 +1,9 @@
 ---
-import { getCollection, render } from 'astro:content';
-import type { CollectionEntry } from 'astro:content';
 import Layout from '../../layouts/Layout.astro';
-import { categories, formatDate, publishedNews } from '../../lib/news.mjs';
-export const prerender = true;
-export async function getStaticPaths() {
-  return publishedNews(await getCollection('novinky')).map(entry => ({
-    params: { slug: entry.id }, props: { entry },
-  }));
-}
-interface Props { entry: CollectionEntry<'novinky'>; }
-const { entry } = Astro.props;
-const { Content } = await render(entry);
+import { categories, formatDate } from '../../lib/news.mjs';
+import { getPublishedNews } from '../../lib/server/content';
+const entry = (await getPublishedNews()).find(item => item.id === Astro.params.slug);
+if (!entry) return Astro.rewrite('/404');
 ---
 <Layout title={`${entry.data.title} | hkfree.org`} description={entry.data.excerpt}>
   <div class="wrap article-wrap">
@@ -22,7 +14,7 @@ const { Content } = await render(entry);
         <h1>{entry.data.title}</h1>
         <p class="article-lead">{entry.data.excerpt}</p>
       </header>
-      <div class="prose"><Content /></div>
+      <div class="prose"><Fragment set:html={entry.html} /></div>
       <div class="article-footer"><a class="btn btn-dark" href="/novinky/">← Všechny novinky</a></div>
     </article>
   </div>

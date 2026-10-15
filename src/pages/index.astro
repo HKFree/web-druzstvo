@@ -1,10 +1,8 @@
 ---
-import { getCollection } from 'astro:content';
 import Layout from '../layouts/Layout.astro';
 import NewsCards from '../components/NewsCards.astro';
-import { publishedNews } from '../lib/news.mjs';
-export const prerender = true;
-const news = publishedNews(await getCollection('novinky'));
+import { getPublishedNews } from '../lib/server/content';
+const news = await getPublishedNews();
 ---
 <Layout>
 

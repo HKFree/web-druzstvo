@@ -1,7 +1,7 @@
 ---
-import type { CollectionEntry } from 'astro:content';
+import type { NewsEntry } from '../lib/server/content';
 import { categories, formatDate } from '../lib/news.mjs';
-interface Props { entries: CollectionEntry<'novinky'>[]; }
+interface Props { entries: NewsEntry[]; }
 const { entries } = Astro.props;
 ---
 {entries.length ? <div class="news">

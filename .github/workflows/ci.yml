@@ -17,6 +17,4 @@ jobs:
       - run: npm run check
       - run: npm test
       - run: npm run build
-      - run: npm run build
-        env:
-          PUBLIC_KEYSTATIC_STORAGE: github
+      - run: npm run test:production
