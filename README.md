@@ -11,9 +11,9 @@ npm ci
 npm run dev
 ```
 
-- Web: http://127.0.0.1:4321/
-- Redakce: http://127.0.0.1:4321/keystatic
-- Archiv novinek: http://127.0.0.1:4321/novinky/
+- Web: http://192.168.5.37:4321/
+- Redakce: http://192.168.5.37:4321/keystatic
+- Archiv novinek: http://192.168.5.37:4321/novinky/
 
 ## Jak přidat novinku
 
@@ -24,7 +24,7 @@ npm run dev
 5. Zrušte **Koncept**, až je článek připravený, a uložte.
 6. Prohlédněte si výsledek na webu. Změny obsahu a obrázky přidejte do Gitu, commitněte a znovu sestavte/nasaďte web.
 
-Lokální editor zapisuje přímo do `src/content/novinky/*.mdoc`; obrázky ukládá do `public/images/novinky/`. Nevyžaduje přihlášení, proto vývojový server spouštějte pouze lokálně. Nové články jsou ve výchozím stavu koncepty. Koncepty a články s budoucím datem se neobjeví na úvodu, v archivu ani jako samostatné stránky. Datum vydání se posuzuje v pásmu Europe/Prague **při sestavení**; plánované vydání vyžaduje nové sestavení v daný den. Na úvodu jsou tři nejnovější články, archiv obsahuje všechny publikované.
+Lokální editor zapisuje přímo do `src/content/novinky/*.mdoc`; obrázky ukládá do `public/images/novinky/`. Nevyžaduje přihlášení; vývojový server je dostupný v lokální síti na `192.168.5.37:4321`. Nové články jsou ve výchozím stavu koncepty. Koncepty a články s budoucím datem se neobjeví na úvodu, v archivu ani jako samostatné stránky. Datum vydání se posuzuje v pásmu Europe/Prague **při sestavení**; plánované vydání vyžaduje nové sestavení v daný den. Na úvodu jsou tři nejnovější články, archiv obsahuje všechny publikované.
 
 Tři úvodní záznamy obsahují **souhrny převzaté z návrhu**, nikoli celé původní články, a odkazují na původní web. Původní návrh uváděl jen měsíc/roční období; přesná data jsou prozatímní a je potřeba je před ostrým spuštěním ověřit spolu s plnými texty. Zachován je také původní badge neoficiálního návrhu.
 
