@@ -11,9 +11,11 @@ npm ci
 npm run dev
 ```
 
-- Web: http://192.168.5.37:4321/
-- Redakce: http://192.168.5.37:4321/keystatic
-- Archiv novinek: http://192.168.5.37:4321/novinky/
+- Web: https://192.168.5.37:4321/
+- Redakce: https://192.168.5.37:4321/keystatic
+- Archiv novinek: https://192.168.5.37:4321/novinky/
+
+Vývojový server používá HTTPS, protože Keystatic potřebuje `crypto.subtle`, které prohlížeče na běžné HTTP adrese v LAN neposkytují. Při prvním spuštění se automaticky vytvoří lokální certifikát (v ignorovaném `node_modules/.vite/`). V prohlížeči je potřeba potvrdit výjimku pro tento vlastní certifikát na `192.168.5.37`; při ostrém nasazení použijte důvěryhodný HTTPS certifikát hostingu. Prohlížení statického buildu přes `npm run preview` redakci neobsahuje.
 
 ## Jak přidat novinku
 
