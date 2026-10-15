@@ -1,0 +1,58 @@
+---
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+import '../styles/global.css';
+interface Props { title?: string; description?: string; }
+const {
+  title = 'hkfree.org — internetové družstvo',
+  description = 'Internet od sousedů, ne od korporace. Komunitní síť v Hradci Králové od roku 2004. 290 Kč měsíčně, bez FUP, bez závazků.',
+} = Astro.props;
+---
+<!doctype html>
+<html lang="cs">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Archivo:ital,wdth,wght@0,62..125,100..900;1,62..125,100..900&family=IBM+Plex+Mono:wght@400;500;600&display=swap&subset=latin-ext" rel="stylesheet" />
+  </head>
+  <body>
+    <a href="#main" class="skip-link">Přejít na obsah</a>
+    <div class="badge-navrh"><b>●</b> GRAFICKÝ NÁVRH · NEOFICIÁLNÍ</div>
+    <Header />
+    <main id="main"><slot /></main>
+    <Footer />
+    <script>
+      const button = document.querySelector<HTMLButtonElement>('.burger');
+      const nav = document.querySelector('#main-nav');
+      function closeMenu() {
+        nav?.classList.remove('is-open');
+        button?.setAttribute('aria-expanded', 'false');
+      }
+      button?.addEventListener('click', () => {
+        const open = nav?.classList.toggle('is-open') ?? false;
+        button.setAttribute('aria-expanded', String(open));
+      });
+      nav?.querySelectorAll('a').forEach(link => link.addEventListener('click', closeMenu));
+      document.addEventListener('keydown', event => {
+        if (event.key === 'Escape' && nav?.classList.contains('is-open')) {
+          closeMenu();
+          button?.focus();
+        }
+      });
+      if ('IntersectionObserver' in window) {
+        document.documentElement.classList.add('js');
+        const observer = new IntersectionObserver(entries => entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('in');
+            observer.unobserve(entry.target);
+          }
+        }), { threshold: .12 });
+        document.querySelectorAll('.rv').forEach(element => observer.observe(element));
+      }
+    </script>
+  </body>
+</html>

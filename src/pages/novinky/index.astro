@@ -1,0 +1,20 @@
+---
+import { getCollection } from 'astro:content';
+import Layout from '../../layouts/Layout.astro';
+import NewsCards from '../../components/NewsCards.astro';
+import { publishedNews } from '../../lib/news.mjs';
+export const prerender = true;
+const news = publishedNews(await getCollection('novinky'));
+---
+<Layout title="Novinky | hkfree.org" description="Zprávy ze sítě, družstva a komunity hkfree.org.">
+  <section class="dim">
+    <div class="wrap">
+      <div class="sec-head">
+        <div class="eyebrow">novinky</div>
+        <h1>Co je nového v síti</h1>
+        <p>Zprávy ze sítě, družstva a naší komunity.</p>
+      </div>
+      <NewsCards entries={news} />
+    </div>
+  </section>
+</Layout>

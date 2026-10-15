@@ -1,0 +1,29 @@
+---
+import { getCollection, render } from 'astro:content';
+import type { CollectionEntry } from 'astro:content';
+import Layout from '../../layouts/Layout.astro';
+import { categories, formatDate, publishedNews } from '../../lib/news.mjs';
+export const prerender = true;
+export async function getStaticPaths() {
+  return publishedNews(await getCollection('novinky')).map(entry => ({
+    params: { slug: entry.id }, props: { entry },
+  }));
+}
+interface Props { entry: CollectionEntry<'novinky'>; }
+const { entry } = Astro.props;
+const { Content } = await render(entry);
+---
+<Layout title={`${entry.data.title} | hkfree.org`} description={entry.data.excerpt}>
+  <div class="wrap article-wrap">
+    <nav class="breadcrumb" aria-label="Drobečková navigace"><a href="/">Úvod</a> / <a href="/novinky/">Novinky</a></nav>
+    <article>
+      <header class="article-header">
+        <div class="meta"><time datetime={entry.data.publishedAt}>{formatDate(entry.data.publishedAt)}</time> · {categories[entry.data.category]}</div>
+        <h1>{entry.data.title}</h1>
+        <p class="article-lead">{entry.data.excerpt}</p>
+      </header>
+      <div class="prose"><Content /></div>
+      <div class="article-footer"><a class="btn btn-dark" href="/novinky/">← Všechny novinky</a></div>
+    </article>
+  </div>
+</Layout>

@@ -1,0 +1,250 @@
+---
+import { getCollection } from 'astro:content';
+import Layout from '../layouts/Layout.astro';
+import NewsCards from '../components/NewsCards.astro';
+import { publishedNews } from '../lib/news.mjs';
+export const prerender = true;
+const news = publishedNews(await getCollection('novinky'));
+---
+<Layout>
+
+<div class="hero">
+  <div class="mesh-map" aria-hidden="true">
+    <svg viewBox="0 0 760 560" preserveAspectRatio="xMidYMid slice">
+      <!-- soutok Labe a Orlice -->
+      <path class="river" d="M 300,-20 C 310,120 280,220 330,300 C 380,380 370,480 350,580"/>
+      <path class="river" d="M 780,180 C 640,200 480,240 330,300"/>
+      <!-- spoje -->
+      <g>
+        <line class="link hot" id="l1" x1="330" y1="300" x2="490" y2="180"/>
+        <line class="link hot" x1="330" y1="300" x2="210" y2="200"/>
+        <line class="link" x1="490" y1="180" x2="640" y2="120"/>
+        <line class="link" x1="490" y1="180" x2="600" y2="260"/>
+        <line class="link hot" x1="330" y1="300" x2="480" y2="390"/>
+        <line class="link" x1="480" y1="390" x2="620" y2="440"/>
+        <line class="link" x1="480" y1="390" x2="430" y2="500"/>
+        <line class="link" x1="210" y1="200" x2="120" y2="120"/>
+        <line class="link" x1="210" y1="200" x2="90" y2="260"/>
+        <line class="link hot" x1="330" y1="300" x2="200" y2="400"/>
+        <line class="link" x1="200" y1="400" x2="110" y2="470"/>
+        <line class="link" x1="640" y1="120" x2="700" y2="60"/>
+        <line class="link" x1="330" y1="300" x2="380" y2="150"/>
+        <line class="link" x1="380" y1="150" x2="300" y2="70"/>
+      </g>
+      <!-- uzly -->
+      <g>
+        <circle class="node red" cx="330" cy="300" r="7"/>
+        <circle class="halo" cx="330" cy="300" r="13"><animate attributeName="r" values="9;22" dur="2.6s" repeatCount="indefinite" class="anim"/><animate attributeName="opacity" values=".55;0" dur="2.6s" repeatCount="indefinite"/></circle>
+        <circle class="node big" cx="490" cy="180" r="5"/>
+        <circle class="node big" cx="210" cy="200" r="5"/>
+        <circle class="node big" cx="480" cy="390" r="5"/>
+        <circle class="node big" cx="200" cy="400" r="4.5"/>
+        <circle class="node" cx="640" cy="120" r="4"/>
+        <circle class="node" cx="600" cy="260" r="4"/>
+        <circle class="node" cx="620" cy="440" r="4"/>
+        <circle class="node" cx="430" cy="500" r="4"/>
+        <circle class="node" cx="120" cy="120" r="4"/>
+        <circle class="node" cx="90" cy="260" r="4"/>
+        <circle class="node" cx="110" cy="470" r="4"/>
+        <circle class="node" cx="700" cy="60" r="4"/>
+        <circle class="node" cx="380" cy="150" r="4"/>
+        <circle class="node" cx="300" cy="70" r="4"/>
+      </g>
+      <!-- pakety -->
+      <g class="anim">
+        <circle class="packet r" r="2.6"><animateMotion dur="3.2s" repeatCount="indefinite" path="M 330,300 L 490,180"/></circle>
+        <circle class="packet" r="2.2"><animateMotion dur="4.1s" begin="0.8s" repeatCount="indefinite" path="M 490,180 L 640,120"/></circle>
+        <circle class="packet" r="2.2"><animateMotion dur="3.7s" begin="1.5s" repeatCount="indefinite" path="M 330,300 L 480,390"/></circle>
+        <circle class="packet r" r="2.4"><animateMotion dur="4.6s" begin="0.3s" repeatCount="indefinite" path="M 210,200 L 330,300"/></circle>
+        <circle class="packet" r="2.2"><animateMotion dur="5.2s" begin="2s" repeatCount="indefinite" path="M 200,400 L 330,300"/></circle>
+        <circle class="packet" r="2"><animateMotion dur="4.4s" begin="1.1s" repeatCount="indefinite" path="M 480,390 L 620,440"/></circle>
+      </g>
+      <!-- popisky uzlu -->
+      <g>
+        <text class="node-label on" x="344" y="296">centrum</text>
+        <text class="node-label on" x="478" y="170" text-anchor="end">Slezské Předměstí</text>
+        <text class="node-label on" x="224" y="192">Kukleny</text>
+        <text class="node-label on" x="468" y="384" text-anchor="end">Moravské Předměstí</text>
+        <text class="node-label" x="214" y="408">Třebeš</text>
+        <text class="node-label" x="654" y="116">Pouchov</text>
+        <text class="node-label" x="614" y="268">Malšovice</text>
+        <text class="node-label" x="634" y="448">Nový Hradec</text>
+        <text class="node-label" x="444" y="506">Roudnička</text>
+        <text class="node-label" x="70" y="110">Plotiště</text>
+        <text class="node-label" x="30" y="268">Sv. Dvory</text>
+        <text class="node-label" x="60" y="490">Lhota</text>
+        <text class="node-label" x="392" y="144">Věkoše</text>
+        <text class="node-label" x="252" y="60">letiště</text>
+      </g>
+    </svg>
+  </div>
+  <div class="mesh-fade"></div>
+  <div class="wrap">
+    <div>
+      <div class="eyebrow"><span class="red">●</span> komunitní síť · Hradec Králové · od 2004</div>
+      <h1>Internet od&nbsp;sousedů,<br>ne od <span class="accent">korporace</span>.</h1>
+      <p class="lead">Přes dvacet let si v Hradci stavíme vlastní síť. Nejsme operátor — jsme družstvo, ve kterém o všem rozhodují sami členové.</p>
+      <div class="ctas">
+        <a class="btn btn-red" href="#pripojeni">Chci se připojit</a>
+        <a class="btn btn-ghost" href="https://mapa.hkfree.org">Mapa pokrytí</a>
+      </div>
+      <div class="facts">
+        <div class="fact"><b>290 Kč</b><span>měsíčně, vše v ceně</span></div>
+        <div class="fact"><b>bez FUP</b><span>žádné limity dat</span></div>
+        <div class="fact"><b>0 závazků</b><span>žádné úvazky</span></div>
+      </div>
+    </div>
+    <div></div>
+  </div>
+</div>
+
+<!-- kdo jsme -->
+<section id="kdo-jsme">
+  <div class="wrap">
+    <div class="sec-head rv">
+      <div class="eyebrow">kdo jsme</div>
+      <h2>Družstvo znamená, že síť patří vám</h2>
+      <p>hkfree.org není firma s majitelem a zákazníky. Je to společenství lidí, kteří si síť sami postavili, sami ji provozují a společně rozhodují, kam se posune dál.</p>
+    </div>
+    <div class="pillars">
+      <div class="pillar rv">
+        <div class="ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.2"/><circle cx="5" cy="17" r="2.6"/><circle cx="19" cy="17" r="2.6"/><path d="M9.6 10.4 6.6 14.8M14.4 10.4l3 4.4M7.6 17h8.8"/></svg></div>
+        <h3>Sousedská síť</h3>
+        <p>Síť staví a udržují dobrovolníci — lidé z vašeho okolí, kteří jí rozumí a záleží jim na ní. Vydělávat na ní nikdo nepotřebuje.</p>
+      </div>
+      <div class="pillar rv">
+        <div class="ico"><svg viewBox="0 0 24 24"><path d="M12 3v10M8.5 6.5 12 3l3.5 3.5"/><path d="M4 14v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/></svg></div>
+        <h3>Členové rozhodují</h3>
+        <p>Každý člen má hlas na členské schůzi. Představenstvo volíme ze svých řad — žádní anonymní akcionáři, žádná centrála.</p>
+      </div>
+      <div class="pillar rv">
+        <div class="ico"><svg viewBox="0 0 24 24"><path d="M4 18c2-6 6-10 8-10s6 4 8 10"/><circle cx="12" cy="5" r="1.8"/><path d="M8.5 18h7"/></svg></div>
+        <h3>Poctivá technika</h3>
+        <p>Optika a moderní bezdrátové spoje, průběžné posilování páteře, dohled 24/7. Když se něco rozbije, opravují to lidé, kteří síť znají nazpaměť.</p>
+      </div>
+    </div>
+    <div class="timeline">
+      <div class="tl rv"><b>2004</b><h4>Vzniká hkfree.org</h4><p>Parta nadšenců zakládá občanské sdružení a staví první bezdrátové spoje nad Hradcem.</p></div>
+      <div class="tl rv"><b>2004–2024</b><h4>Dvacet let růstu</h4><p>Ze střech paneláků až po optiku. Síť pokrývá Hradec Králové a okolní obce.</p></div>
+      <div class="tl rv"><b>2025</b><h4>Internetové družstvo</h4><p>Kvůli legislativě přebírá poskytování internetu družstvo. Cena, lidé i principy zůstávají.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- jak se pripojit -->
+<section class="dim" id="pripojeni">
+  <div class="wrap">
+    <div class="sec-head rv">
+      <div class="eyebrow">jak se připojit</div>
+      <h2>Od zájmu k připojení ve čtyřech krocích</h2>
+    </div>
+    <div class="steps">
+      <div class="step rv">
+        <h3>Ověřte pokrytí</h3>
+        <p>Podívejte se na <a href="https://mapa.hkfree.org">mapu sítě</a>, jestli je ve vašem okolí přípojný bod. Pokrýváme Hradec Králové a řadu okolních obcí.</p>
+      </div>
+      <div class="step rv">
+        <h3>Ozvěte se nám</h3>
+        <p>Zavolejte na <a href="tel:+420608101070">608 10 10 70</a> (v pracovní dny 9–17 h), napište na WhatsApp nebo na <a href="mailto:podpora@hkfree.org">podpora@hkfree.org</a>.</p>
+      </div>
+      <div class="step rv">
+        <h3>Instalace a smlouva</h3>
+        <p>Domluvíme termín, technici namontují anténu či přivedou optiku a podepíšete smlouvu. <a href="https://druzstvo.hkfree.org/dokumenty/">Vzor najdete v dokumentech</a>.</p>
+      </div>
+      <div class="step rv">
+        <h3>Jste členem</h3>
+        <p>Stáváte se členem družstva s hlasem na členské schůzi. Vše o svém připojení spravujete na <a href="https://moje.hkfree.org">moje.hkfree.org</a>.</p>
+      </div>
+    </div>
+    <div class="steps-cta rv">
+      <a class="btn btn-red" href="tel:+420608101070">Zavolat: 608 10 10 70</a>
+      <span class="note">pracovní dny 9–17 h · volání i WhatsApp</span>
+    </div>
+  </div>
+</section>
+
+<!-- cena -->
+<section id="cena">
+  <div class="wrap">
+    <div class="sec-head rv">
+      <div class="eyebrow">cena</div>
+      <h2>Jedna cena. Žádné hvězdičky.</h2>
+      <p>Členský příspěvek pokrývá provoz a rozvoj sítě. Nic víc neplatíte — žádné aktivační poplatky za službu, žádné zdražování po prvním roce.</p>
+    </div>
+    <div class="price-grid">
+      <div class="price-card rv">
+        <div class="eyebrow">členský příspěvek</div>
+        <div class="price-big"><b>290 Kč</b><span>/ měsíc</span></div>
+        <ul>
+          <li><svg viewBox="0 0 24 24"><path d="m4 12.5 5 5L20 6.5"/></svg>bez FUP a datových limitů</li>
+          <li><svg viewBox="0 0 24 24"><path d="m4 12.5 5 5L20 6.5"/></svg>bez závazků a výpovědních pokut</li>
+          <li><svg viewBox="0 0 24 24"><path d="m4 12.5 5 5L20 6.5"/></svg>veřejná IP adresa a plnohodnotný přístup</li>
+          <li><svg viewBox="0 0 24 24"><path d="m4 12.5 5 5L20 6.5"/></svg>podpora od lidí, kteří síť sami staví</li>
+          <li><svg viewBox="0 0 24 24"><path d="m4 12.5 5 5L20 6.5"/></svg>hlas v družstvu — rozhodujete s námi</li>
+        </ul>
+      </div>
+      <div class="pay-card rv">
+        <h3>Jak platit</h3>
+        <div class="pay-row"><span>Číslo účtu</span><b>107207255 / 2010</b></div>
+        <div class="pay-row"><span>Variabilní symbol</span><b>vaše hkfree ID</b></div>
+        <div class="pay-row"><span>Poznámka platby</span><b>jméno + ID</b></div>
+        <div class="pay-row"><span>Splatnost</span><b>do 25. dne předem</b></div>
+        <p class="pay-note">Nejjednodušší je <b>trvalý příkaz</b> — nastavíte jednou a máte klid. Své ID najdete na <a href="https://moje.hkfree.org" style="color:var(--red);font-weight:600;text-decoration:none">moje.hkfree.org</a>.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- novinky -->
+<section class="dim" id="novinky">
+  <div class="wrap">
+    <div class="sec-head rv">
+      <div class="eyebrow">novinky</div>
+      <h2>Co je nového v síti</h2>
+    </div>
+    <NewsCards entries={news.slice(0, 3)} />
+    <div class="news-actions"><a class="btn btn-dark" href="/novinky/">Všechny novinky →</a></div>
+  </div>
+</section>
+
+<!-- dokumenty + kontakt -->
+<section id="dokumenty">
+  <div class="wrap">
+    <div class="two-col">
+      <div>
+        <div class="sec-head rv" style="margin-bottom:36px">
+          <div class="eyebrow">dokumenty</div>
+          <h2>Vše černé na bílém</h2>
+        </div>
+        <ul class="doclist rv" id="kontakt-docs">
+          <li><a href="https://druzstvo.hkfree.org/dokumenty/"><span class="tag">PDF</span>Všeobecné obchodní podmínky<span class="arrow">→</span></a></li>
+          <li><a href="https://druzstvo.hkfree.org/dokumenty/"><span class="tag">PDF</span>Ceník a technická specifikace služeb<span class="arrow">→</span></a></li>
+          <li><a href="https://druzstvo.hkfree.org/dokumenty/"><span class="tag">PDF</span>Vzor smlouvy<span class="arrow">→</span></a></li>
+          <li><a href="https://druzstvo.hkfree.org/dokumenty/"><span class="tag">PDF</span>Reklamační řád a formulář<span class="arrow">→</span></a></li>
+          <li><a href="https://druzstvo.hkfree.org/dokumenty/"><span class="tag">PDF</span>Ochrana osobních údajů (GDPR)<span class="arrow">→</span></a></li>
+          <li><a href="https://druzstvo.hkfree.org/dokumenty/"><span class="tag">PDF</span>Výpověď smlouvy<span class="arrow">→</span></a></li>
+        </ul>
+      </div>
+      <div id="kontakt">
+        <div class="sec-head rv" style="margin-bottom:36px">
+          <div class="eyebrow">kontakt</div>
+          <h2>Jsme na drátě</h2>
+        </div>
+        <div class="contact-card rv">
+          <div class="eyebrow" style="margin-bottom:2px">infolinka · volání i whatsapp</div>
+          <a class="big-phone" href="tel:+420608101070">608 10 10 70</a>
+          <div class="hours">pracovní dny 9–17 h</div>
+          <div class="contact-rows">
+            <div class="pay-row"><span>Podpora</span><b><a href="mailto:podpora@hkfree.org">podpora@hkfree.org</a></b></div>
+            <div class="pay-row"><span>Předsednictvo</span><b><a href="mailto:id@hkfree.org">id@hkfree.org</a></b></div>
+            <div class="pay-row"><span>Fakturace</span><b><a href="mailto:fakturace@hkfree.org">fakturace@hkfree.org</a></b></div>
+            <div class="pay-row"><span>Sídlo</span><b>Heyrovského 1178/6, Hradec Králové</b></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+</Layout>
