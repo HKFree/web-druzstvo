@@ -4,7 +4,7 @@ Web v Astro se zachovaným designem z [Pajaaaa/hkf_web](https://github.com/Pajaa
 
 ## Pro redaktora
 
-1. Otevřete `https://vase-domena.cz/keystatic` a přihlaste se účtem hkfree přes přihlašovací stránku organizace. Přístup do redakce musí mít váš účet povolený správcem. Ve vývojové verzi se místo toho zobrazí dialog pro jméno a heslo.
+1. Otevřete `https://vase-domena.cz/keystatic` a přihlaste se účtem hkfree přes přihlašovací stránku organizace. Přístup do redakce řídí váš OIDC poskytovatel; pokud správce zapne místní seznam povolených účtů, musí být váš účet také v něm. Ve vývojové verzi se místo toho zobrazí dialog pro jméno a heslo.
 2. V **Novinkách** vyberte článek, nebo tlačítkem **Add** vytvořte nový.
 3. Upravte název, adresu článku (slug), datum, rubriku, úvod a text. V editoru lze vkládat i obrázky.
 4. Zrušte **Koncept**, pokud chcete článek zveřejnit, a klikněte na **Create** nebo **Save**.
@@ -75,11 +75,12 @@ Do `.env` vyplňte:
 | `OIDC_ISSUER` | Přesný issuer poskytovatele; endpointy a klíče se načtou z OIDC discovery. Použijte issuer, nikoli celou adresu `.well-known/openid-configuration`. |
 | `OIDC_CLIENT_ID` | ID registrovaného webového klienta. |
 | `OIDC_CLIENT_SECRET` | Jeho tajný klíč, pouze na serveru. |
+| `OIDC_ALLOW_ALL_AUTHENTICATED` | `true`: každý úspěšně přihlášený uživatel tohoto OIDC klienta je redaktor; přístup řídí poskytovatel. Při `false` se použijí seznamy níže. Vzor `.env.example` používá `true`. |
 | `OIDC_ALLOWED_SUBJECTS` | Povolené hodnoty `sub` uživatelů od tohoto poskytovatele, oddělené čárkou. |
 | `OIDC_ALLOWED_EMAILS` | Volitelný seznam konkrétních e-mailů, oddělených čárkou. E-mail musí poskytovatel potvrdit pomocí `email_verified: true`. |
 | `OIDC_CLIENT_AUTH_METHOD` | Výchozí `client_secret_basic`; pokud poskytovatel vyžaduje tajný klíč v těle požadavku, nastavte `client_secret_post`. |
 
-Alespoň jeden seznam povolených účtů musí být vyplněný. Samotné úspěšné přihlášení u poskytovatele neopravňuje všechny jeho uživatele k editaci webu. Preferujte stabilní identifikátory `sub`; u e-mailů poskytovatel musí vracet také informaci o ověření e-mailu.
+Pro hkfree nastavte `OIDC_ALLOW_ALL_AUTHENTICATED=true`: přístup ke klientovi řídí OIDC server a všichni úspěšně přihlášení uživatelé jsou redaktoři. Místní seznamy účtů pak nejsou potřeba. Pokud chcete účty omezovat také v aplikaci, nastavte `false` a vyplňte alespoň jeden seznam povolených účtů. Preferujte stabilní identifikátory `sub`; u e-mailů poskytovatel musí vracet také informaci o ověření e-mailu. Bez výslovného `true` nebo vyplněného seznamu zůstane redakce uzavřená. V obou režimech se ověřují podepsané tokeny stejného nakonfigurovaného poskytovatele.
 
 V produkci je výchozí režim `oidc` a Compose ho nastavuje výslovně. Bez správné konfigurace zůstane redakce uzavřená, veřejný web funguje dál. Přihlášení používá PKCE, `state`, `nonce` a ověřuje ID token včetně podpisu, vydavatele, příjemce a platnosti. Do prohlížeče se ukládá pouze neprůhledný identifikátor relace v `HttpOnly`, `Secure`, `SameSite=Lax` cookie, nikoli tokeny poskytovatele.
 

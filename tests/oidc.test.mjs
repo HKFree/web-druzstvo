@@ -17,13 +17,23 @@ test('development defaults to password; production defaults to OIDC and never fa
   assert.throws(() => readAuthConfig({ ...env, AUTH_MODE: 'invalid' }, true));
 });
 
-test('OIDC configuration requires HTTPS origins, credentials and an explicit editor allowlist', () => {
+test('OIDC configuration requires HTTPS origins, credentials and an explicit authorization policy', () => {
   assert.equal(readAuthConfig(env).redirectUri, 'https://web.example/auth/callback');
   for (const replacement of [
     { AUTH_ORIGIN: 'http://web.example' }, { AUTH_ORIGIN: 'https://web.example/extra' },
     { AUTH_ORIGIN: 'https://user:pass@web.example' }, { OIDC_ISSUER: 'http://login.example' },
     { OIDC_CLIENT_SECRET: '' }, { OIDC_ALLOWED_SUBJECTS: '' }, { OIDC_CLIENT_AUTH_METHOD: 'invalid' },
   ]) assert.throws(() => readAuthConfig({ ...env, ...replacement }));
+});
+
+test('provider-managed access accepts every authenticated subject only when explicitly enabled', () => {
+  const config = readAuthConfig({ ...env, OIDC_ALLOWED_SUBJECTS: '', OIDC_ALLOW_ALL_AUTHENTICATED: 'true' });
+  assert.equal(authorizedIdentity({ sub: 'any-editor' }, config), true);
+  assert.equal(authorizedIdentity({ sub: '' }, config), false);
+  assert.equal(authorizedIdentity({}, config), false);
+  for (const value of ['', 'false', 'TRUE', '1']) {
+    assert.throws(() => readAuthConfig({ ...env, OIDC_ALLOWED_SUBJECTS: '', OIDC_ALLOW_ALL_AUTHENTICATED: value }));
+  }
 });
 
 test('editor authorization accepts allowed subjects or explicitly verified allowed emails', () => {

@@ -27,7 +27,7 @@ test('production OIDC authentication, authorization and live editing', { timeout
         CONTENT_DIR: join(work, 'content'), ADMIN_USERNAME: 'test', ADMIN_PASSWORD: 'must-never-work-in-production',
         NODE_EXTRA_CA_CERTS: provider.certPath, SERVER_CERT_PATH: provider.certPath, SERVER_KEY_PATH: provider.keyPath,
         AUTH_MODE: 'oidc', AUTH_ORIGIN: base, OIDC_ISSUER: provider.issuer, OIDC_CLIENT_ID: 'test-web',
-        OIDC_CLIENT_SECRET: 'test-secret', OIDC_ALLOWED_SUBJECTS: 'editor-1', OIDC_ALLOWED_EMAILS: '',
+        OIDC_CLIENT_SECRET: 'test-secret', OIDC_ALLOWED_SUBJECTS: 'editor-1', OIDC_ALLOWED_EMAILS: '', OIDC_ALLOW_ALL_AUTHENTICATED: 'false',
         ...overrides },
       stdio: ['ignore', 'pipe', 'pipe'],
     });
@@ -189,6 +189,18 @@ test('production OIDC authentication, authorization and live editing', { timeout
     await start({ OIDC_CLIENT_AUTH_METHOD: 'client_secret_post' });
     const postClient = await login();
     assert.equal(postClient.response.headers.get('location'), '/keystatic/collection/novinky');
+    await stop();
+    await start({ OIDC_ALLOW_ALL_AUTHENTICATED: 'true', OIDC_ALLOWED_SUBJECTS: '' });
+    const providerManaged = await login({ test_subject: 'provider-approved-editor' });
+    assert.equal(providerManaged.response.headers.get('location'), '/keystatic/collection/novinky');
+    assert.equal((await providerManaged.browser.request(base + '/keystatic')).status, 200);
+    editor = providerManaged.browser;
+    result = await update({ additions: [], deletions: [] });
+    assert.equal(result.status, 200, await result.text());
+    const invalidSignature = await login({ test_subject: 'provider-approved-editor', test_signature: 'bad' });
+    assert.equal(invalidSignature.browser.cookies.has(SESSION_COOKIE), false);
+    assert.equal((await invalidSignature.browser.request(base + '/api/keystatic/tree')).status, 401);
+    assert.equal((await anonymous(base + '/api/keystatic/tree')).status, 401);
     await stop();
     await start({ AUTH_MODE: 'password' });
     assert.equal((await anonymous(base + '/keystatic')).status, 503);

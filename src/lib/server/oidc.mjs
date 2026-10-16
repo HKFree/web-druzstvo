@@ -28,18 +28,19 @@ export function readAuthConfig(env, development = false) {
   }
   const subjects = list(env.OIDC_ALLOWED_SUBJECTS);
   const emails = list(env.OIDC_ALLOWED_EMAILS).map(email => email.toLowerCase());
-  if (!subjects.length && !emails.length) throw new Error('Nastavte alespoň jednoho povoleného redaktora v OIDC_ALLOWED_SUBJECTS nebo OIDC_ALLOWED_EMAILS.');
+  const allowAllAuthenticated = env.OIDC_ALLOW_ALL_AUTHENTICATED === 'true';
+  if (!allowAllAuthenticated && !subjects.length && !emails.length) throw new Error('Povolte přístup řízený OIDC nebo nastavte povolené redaktory podle README.');
   const clientAuthMethod = env.OIDC_CLIENT_AUTH_METHOD || 'client_secret_basic';
   if (!['client_secret_basic', 'client_secret_post'].includes(clientAuthMethod)) throw new Error('Neplatná metoda ověření OIDC klienta.');
   return {
     mode, origin: origin.origin, issuer: issuer.href, clientId: env.OIDC_CLIENT_ID,
-    clientSecret: env.OIDC_CLIENT_SECRET, clientAuthMethod, subjects, emails,
+    clientSecret: env.OIDC_CLIENT_SECRET, clientAuthMethod, subjects, emails, allowAllAuthenticated,
     redirectUri: `${origin.origin}/auth/callback`,
   };
 }
 
 export function authorizedIdentity(claims, config) {
-  return typeof claims?.sub === 'string' && (config.subjects.includes(claims.sub)
+  return typeof claims?.sub === 'string' && claims.sub.length > 0 && (config.allowAllAuthenticated === true || config.subjects.includes(claims.sub)
     || (claims.email_verified === true && typeof claims.email === 'string'
       && config.emails.includes(claims.email.toLowerCase())));
 }
