@@ -23,19 +23,40 @@ Výchozí obsah tvoří osm původních PDF z [webu družstva](https://druzstvo.
 
 ## Jednorázové nasazení správcem
 
-Potřebujete server s **Docker Compose**, veřejnou doménu směřující na jeho IP a dostupné porty **80 a 443**. Nemůže to být hosting určený pouze pro statické HTML; aplikace musí na serveru běžet a mít trvalé úložiště. Následující kroky provádí správce jednou, nikoli redaktor při úpravách.
+Potřebujete server s **Docker Compose** a **Apache2**, který pro veřejnou doménu zajišťuje HTTPS vaším vlastním certifikátem. Nemůže to být hosting určený pouze pro statické HTML; aplikace musí na serveru běžet a mít trvalé úložiště. Následující kroky provádí správce jednou, nikoli redaktor při úpravách.
 
 1. Nahrajte projekt na server (nebo ho naklonujte) a v jeho adresáři zkopírujte `.env.example` do `.env`.
 2. V `.env` nastavte skutečnou `DOMAIN` a OIDC údaje podle následující části. Soubor s tajnými údaji nesdílejte ani necommitujte.
-3. Spusťte:
+3. Případně nastavte `WEB_PORT` (výchozí `4321`) na volný port serveru. Compose publikuje pouze HTTP na `127.0.0.1:4321`; porty 80/443 obsluhuje váš Apache2.
+4. Spusťte:
 
 ```sh
 docker compose up -d --build
 ```
 
-Web poběží na `https://vase-domena.cz`, redakce na `https://vase-domena.cz/keystatic`. Caddy automaticky obstará veřejný HTTPS certifikát. OIDC přihlášení chrání administraci i její zapisovací API. Produkční server nepovoluje přihlášení vývojovým heslem; při chybě OIDC se na heslo nepřepne.
+Po nastavení Apache2 podle následující části poběží web na `https://vase-domena.cz`, redakce na `https://vase-domena.cz/admin`. OIDC přihlášení chrání administraci i její zapisovací API. Produkční server nepovoluje přihlášení vývojovým heslem; při chybě OIDC se na heslo nepřepne.
 
-Soubor `compose.yaml` spouští aplikaci a HTTPS proxy. Pokud už na serveru používáte vlastní proxy na portech 80/443, správce ji může ponechat, spustit jen službu `web` a propojit ji s existující proxy. Vestavěný Node server poslouchá v kontejneru na portu 4321.
+Soubor `compose.yaml` spouští jedinou službu `web` a trvalý volume `content`. Aplikace v kontejneru poslouchá přes HTTP na portu 4321. Certifikát zůstává v Apache2; v kontejneru není potřeba.
+
+### Apache2 před aplikací
+
+Vzor je v [`deploy/apache2.conf`](deploy/apache2.conf). Upravte `ServerName` a `X-Forwarded-Host` na stejnou doménu jako `DOMAIN` v `.env`, doplňte cesty k vlastnímu certifikátu (včetně řetězce) a soukromému klíči. Při změně `WEB_PORT` upravte také port v obou direktivách `ProxyPass` a `ProxyPassReverse`. Pokud už máte HTTPS VirtualHost, přeneste do něj proxy direktivy ze vzoru místo vytváření druhého VirtualHostu pro stejnou doménu.
+
+Na Debianu/Ubuntu povolte potřebné moduly a po instalaci konfigurace ji ověřte a načtěte:
+
+```sh
+sudo a2enmod proxy proxy_http headers ssl
+sudo apache2ctl configtest
+sudo systemctl reload apache2
+```
+
+Nový konfigurační soubor umístěte do `/etc/apache2/sites-available/` a aktivujte pomocí `sudo a2ensite nazev-souboru.conf` před kontrolou konfigurace. Existující přesměrování z HTTP na HTTPS ponechte v Apache2.
+
+Apache posílá aplikaci veřejnou doménu a protokol pomocí `X-Forwarded-Host`, `X-Forwarded-Proto` a `X-Forwarded-Port`; vzor tyto hodnoty nastavuje sám, aby nepřebíral hlavičky od návštěvníků. To je nutné pro přihlášení, přesměrování a ukládání v redakci. `AUTH_ORIGIN` zůstává **veřejná HTTPS adresa**, i když Apache komunikuje s aplikací přes HTTP. Provozujte web v kořeni domény a pro redaktory používejte HTTPS adresu přes Apache; editor vyžaduje zabezpečený kontext prohlížeče.
+
+Výchozí publikování na `127.0.0.1` počítá s Apache2 přímo na stejném stroji. Pokud proxy běží na jiném stroji nebo v kontejneru, upravte síťové propojení odpovídajícím způsobem a přístup k HTTP backendu povolte pouze proxy.
+
+Konfigurace vychází z dokumentace Apache pro [reverse proxy](https://httpd.apache.org/docs/2.4/mod/mod_proxy.html) a [nastavení hlaviček požadavku](https://httpd.apache.org/docs/2.4/mod/mod_headers.html#requestheader).
 
 ### Jednorázové nastavení OIDC přihlášení
 
@@ -70,13 +91,13 @@ Obsah se zapisuje přímo do trvalého Docker volume **`content`**, připojenéh
 
 Při úplně prvním spuštění se zkopírují tři ukázkové články z návrhu a osm původních PDF. Dokumenty se jednorázově doplní také při aktualizaci starší instalace, která už obsahuje novinky; existující záznamy ani soubory se nepřepisují. Při dalších spuštěních se již obsah nepřepisuje a smazané ukázky se neobnovují. Ukázky obsahují původní souhrny, odkazy na zdroj a prozatímní data; před ostrým spuštěním je ověřte.
 
-**Zálohujte volume `content`**, například snapshotem disku nebo zálohováním volume při zastavené službě `web`. Git se zdrojovým kódem není záloha článků a dokumentů upravených na serveru. Při přesunu na jiný server přeneste tento volume a `.env`; zálohujte také volume `certificates`, aby se zachovaly HTTPS certifikáty. Pro samotný restart nebo aktualizaci volume nemažte (`docker compose down -v` by obsah odstranilo).
+**Zálohujte volume `content`**, například snapshotem disku nebo zálohováním volume při zastavené službě `web`. Git se zdrojovým kódem není záloha článků a dokumentů upravených na serveru. Při přesunu na jiný server přeneste tento volume a `.env`. Certifikát, klíč a konfiguraci Apache2 zálohujte samostatně. Pro samotný restart nebo aktualizaci volume nemažte (`docker compose down -v` by obsah odstranilo).
 
 ### Aktualizace aplikace
 
 Po nahrání nové verze zdrojového kódu znovu spusťte `docker compose up -d --build`. Trvalý volume s články a obrázky zůstane zachovaný. Toto je potřeba jen při změně programu/designu; **úpravy novinek ani dokumentů nevyžadují aktualizaci nebo restart**.
 
-Pro kontrolu provozu použije správce `docker compose logs --tail=100 web proxy`. Po prvním nasazení vyzkoušejte přihlášení, vytvoření článku i obrázek. Pak restartujte aplikaci a ověřte, že obsah zůstal. Docker konfigurace je připravená v repozitáři; DNS a skutečné nasazení musí správce ověřit na cílovém serveru.
+Pro kontrolu provozu použije správce `docker compose logs --tail=100 web`. Po prvním nasazení vyzkoušejte přihlášení, vytvoření článku i obrázek. Pak restartujte aplikaci a ověřte, že obsah zůstal. Docker konfigurace je připravená v repozitáři; DNS a skutečné nasazení musí správce ověřit na cílovém serveru.
 
 ## Lokální vývoj / spuštění bez Dockeru
 
@@ -119,7 +140,7 @@ npm run test:production
 - `src/content/dokumenty/` — počáteční dokumenty a jejich zdroje
 - `src/content/novinky/` — pouze počáteční ukázky, nikoli živé serverové články
 - `data/` — výchozí lokální úložiště obsahu, ignorované Gitem
-- `Dockerfile`, `compose.yaml`, `deploy/Caddyfile` — produkční aplikace a HTTPS
+- `Dockerfile`, `compose.yaml`, `deploy/apache2.conf` — produkční HTTP aplikace a vzor HTTPS proxy Apache2
 
 Test `npm run test:production` používá místní testovací OIDC server s HTTPS a podepsanými tokeny (vyžaduje `openssl`); nepotřebuje skutečné hkfree přihlašovací údaje. Skutečné přihlášení hkfree je potřeba ověřit po získání issueru a klientských údajů.
 
