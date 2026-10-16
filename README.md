@@ -60,7 +60,7 @@ Relace platí nejvýše osm hodin. V redakci je tlačítko **Odhlásit se**, kte
 
 Obsah se zapisuje přímo do trvalého Docker volume **`content`**, připojeného do aplikace jako `/app/data`. Články jsou soubory Markdoc v `content/novinky/`, obrázky v `images/novinky/`. Web je čte za běhu, takže změny nejsou závislé na sestavení aplikace.
 
-Při úplně prvním spuštění se zkopírují tři ukázkové články z návrhu. Při dalších spuštěních se již obsah nepřepisuje a smazané ukázky se neobnovují. Ukázky obsahují původní souhrny, odkazy na zdroj a prozatímní data; před ostrým spuštěním je ověřte. Zachovaný je také badge neoficiálního návrhu.
+Při úplně prvním spuštění se zkopírují tři ukázkové články z návrhu. Při dalších spuštěních se již obsah nepřepisuje a smazané ukázky se neobnovují. Ukázky obsahují původní souhrny, odkazy na zdroj a prozatímní data; před ostrým spuštěním je ověřte.
 
 **Zálohujte volume `content`**, například snapshotem disku nebo zálohováním volume při zastavené službě `web`. Git se zdrojovým kódem není záloha článků upravených na serveru. Při přesunu na jiný server přeneste tento volume a `.env`; zálohujte také volume `certificates`, aby se zachovaly HTTPS certifikáty. Pro samotný restart nebo aktualizaci volume nemažte (`docker compose down -v` by obsah odstranilo).
 
@@ -115,3 +115,5 @@ npm run test:production
 Test `npm run test:production` používá místní testovací OIDC server s HTTPS a podepsanými tokeny (vyžaduje `openssl`); nepotřebuje skutečné hkfree přihlašovací údaje. Skutečné přihlášení hkfree je potřeba ověřit po získání issueru a klientských údajů.
 
 README popisuje jediný publikační postup: úprava a uložení v administraci. Repozitář slouží vývoji programu a jeho automatické kontroly web nenasazují.
+
+Logo v `public/images/hkfree-logo-druzstvo.gif` je původní oficiální soubor z [webu družstva](https://druzstvo.hkfree.org/wp-content/themes/hkfree/images/hkfree-logo-druzstvo.gif). Zobrazuje se ve správném poměru stran bez změny kresby; červené akcenty webu používají jeho barvu `#cc0000`.

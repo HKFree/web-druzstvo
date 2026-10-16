@@ -1,9 +1,10 @@
-
+---
+import Logo from './Logo.astro';
+---
 <div class="statusbar">
   <div class="wrap">
     <span><span class="dot"></span>síť v provozu</span>
     <span class="grow"></span>
-    <a href="https://power.hkfree.org/vypadky" class="hide-m">výpadky elektřiny</a>
     <a href="tel:+420608101070">608 10 10 70</a>
     <a href="https://moje.hkfree.org">moje.hkfree.org →</a>
   </div>
@@ -12,7 +13,7 @@
 <!-- header -->
 <header class="site">
   <div class="wrap">
-    <a class="logo" href="/"><b>hkfree</b><span>.org</span><small>internetové&nbsp;družstvo</small></a>
+    <a class="logo" href="/" aria-label="hkfree.org — úvodní stránka"><Logo /></a>
     <nav class="main" id="main-nav" aria-label="Hlavní navigace">
       <a href="/#kdo-jsme">Kdo jsme</a>
       <a href="/#pripojeni">Připojení</a>
