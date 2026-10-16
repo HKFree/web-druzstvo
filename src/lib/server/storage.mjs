@@ -4,6 +4,7 @@ import Markdoc from '@markdoc/markdoc';
 import { parse } from 'yaml';
 import sanitizeHtml from 'sanitize-html';
 import { z } from 'zod';
+import { prefixPath } from '../base-path.mjs';
 
 export const articleSchema = z.object({
   title: z.string().min(1),
@@ -13,13 +14,13 @@ export const articleSchema = z.object({
   draft: z.boolean().default(true),
 });
 
-export function parseArticle(id, source) {
+export function parseArticle(id, source, base = '') {
   const ast = Markdoc.parse(source);
   const data = articleSchema.parse(parse(ast.attributes.frontmatter ?? ''));
-  return { id, data, html: renderContent(ast) };
+  return { id, data, html: renderContent(ast, base) };
 }
 
-export function renderContent(ast) {
+export function renderContent(ast, base = '') {
   return sanitizeHtml(Markdoc.renderers.html(Markdoc.transform(ast)), {
     allowedTags: [...sanitizeHtml.defaults.allowedTags, 'img'],
     allowedAttributes: {
@@ -28,10 +29,14 @@ export function renderContent(ast) {
     },
     allowedSchemes: ['https', 'http', 'mailto', 'tel'],
     allowProtocolRelative: false,
+    transformTags: {
+      a: (tagName, attribs) => ({ tagName, attribs: { ...attribs, ...(attribs.href ? { href: prefixPath(attribs.href, base) } : {}) } }),
+      img: (tagName, attribs) => ({ tagName, attribs: { ...attribs, ...(attribs.src ? { src: prefixPath(attribs.src, base) } : {}) } }),
+    },
   });
 }
 
-export function createContentStore(directory, seeds = {}) {
+export function createContentStore(directory, seeds = {}, base = '') {
   const root = resolve(directory);
   let initialized;
   async function initialize() {
@@ -55,7 +60,7 @@ export function createContentStore(directory, seeds = {}) {
     const files = await readdir(join(root, 'content/novinky'));
     return Promise.all(files.filter(file => /^[a-zA-Z0-9_-]+\.mdoc$/.test(file)).map(async file => {
       const source = await readFile(join(root, 'content/novinky', file), 'utf8');
-      return parseArticle(file.slice(0, -5), source);
+      return parseArticle(file.slice(0, -5), source, base);
     }));
   }
   return { root, ready, all };

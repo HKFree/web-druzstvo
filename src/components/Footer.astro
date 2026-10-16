@@ -1,11 +1,12 @@
 ---
+import { sitePath } from '../lib/paths';
 import Logo from './Logo.astro';
 ---
 <footer>
   <div class="wrap">
     <div class="foot-grid">
       <div>
-        <a class="foot-logo" href="/" aria-label="hkfree.org — úvodní stránka"><Logo loading="lazy" /></a>
+        <a class="foot-logo" href={sitePath('/')} aria-label="hkfree.org — úvodní stránka"><Logo loading="lazy" /></a>
         <p class="foot-desc">Internetové družstvo. Komunitní síť v Hradci Králové a okolí od roku 2004.</p>
         <p class="foot-legal">IČ 22339485 · DIČ CZ22339485<br>datová schránka: zjbxjac<br>účet: 107207255/2010</p>
       </div>
@@ -22,7 +23,7 @@ import Logo from './Logo.astro';
         <h5>Družstvo</h5>
         <ul>
           <li><a href="#">Co je hkfree</a></li>
-          <li><a href="/#dokumenty">Dokumenty</a></li>
+          <li><a href={sitePath('/#dokumenty')}>Dokumenty</a></li>
           <li><a href="#">Časté dotazy</a></li>
           <li><a href="https://spolek.hkfree.org">Spolek hkfree.org</a></li>
         </ul>

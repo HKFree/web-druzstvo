@@ -51,18 +51,45 @@ Vzor je v [`deploy/apache2.conf`](deploy/apache2.conf). Upravte `ServerName` a `
 Na Debianu/Ubuntu povolte potřebné moduly a po instalaci konfigurace ji ověřte a načtěte:
 
 ```sh
-sudo a2enmod proxy proxy_http headers ssl
+sudo a2enmod proxy proxy_http headers ssl alias
 sudo apache2ctl configtest
 sudo systemctl reload apache2
 ```
 
 Nový konfigurační soubor umístěte do `/etc/apache2/sites-available/` a aktivujte pomocí `sudo a2ensite nazev-souboru.conf` před kontrolou konfigurace. Existující přesměrování z HTTP na HTTPS ponechte v Apache2.
 
-Apache posílá aplikaci veřejnou doménu a protokol pomocí `X-Forwarded-Host`, `X-Forwarded-Proto` a `X-Forwarded-Port`; vzor tyto hodnoty nastavuje sám, aby nepřebíral hlavičky od návštěvníků. To je nutné pro přihlášení, přesměrování a ukládání v redakci. `AUTH_ORIGIN` zůstává **veřejná HTTPS adresa**, i když Apache komunikuje s aplikací přes HTTP. Provozujte web v kořeni domény a pro redaktory používejte HTTPS adresu přes Apache; editor vyžaduje zabezpečený kontext prohlížeče.
+Apache posílá aplikaci veřejnou doménu a protokol pomocí `X-Forwarded-Host`, `X-Forwarded-Proto` a `X-Forwarded-Port`; vzor tyto hodnoty nastavuje sám, aby nepřebíral hlavičky od návštěvníků. To je nutné pro přihlášení, přesměrování a ukládání v redakci. `AUTH_ORIGIN` zůstává **veřejná HTTPS adresa**, i když Apache komunikuje s aplikací přes HTTP. Pro redaktory používejte HTTPS adresu přes Apache; editor vyžaduje zabezpečený kontext prohlížeče.
 
 Výchozí publikování na `127.0.0.1` počítá s Apache2 přímo na stejném stroji. Pokud proxy běží na jiném stroji nebo v kontejneru, upravte síťové propojení odpovídajícím způsobem a přístup k HTTP backendu povolte pouze proxy.
 
 Konfigurace vychází z dokumentace Apache pro [reverse proxy](https://httpd.apache.org/docs/2.4/mod/mod_proxy.html) a [nastavení hlaviček požadavku](https://httpd.apache.org/docs/2.4/mod/mod_headers.html#requestheader).
+
+### Nasazení do podsložky, například `/v2/`
+
+Prefix je společný pro celý web, soubory, redakci i přihlášení. Pro souběh s původním webem nastavte v produkčním `.env`:
+
+```dotenv
+DOMAIN=druzstvo.hkfree.org
+BASE_PATH=/v2
+AUTH_ORIGIN=https://druzstvo.hkfree.org
+```
+
+`AUTH_ORIGIN` stále obsahuje pouze protokol a doménu; Compose ji nastavuje podle `DOMAIN`. `BASE_PATH` je nastavení **při sestavení**, proto po změně spusťte `docker compose up -d --build`. Výchozí `/` znamená provoz v kořeni. Používejte cestu bez domény, například `/v2` nebo `/test/v2`.
+
+Do existujícího HTTPS VirtualHostu přidejte direktivy ze souboru [`deploy/apache2-v2.conf`](deploy/apache2-v2.conf). Původní obsluhu zbytku webu ponechte. Důležité je zachovat prefix také při předávání aplikaci:
+
+```apache
+ProxyPass        /v2/ http://127.0.0.1:4321/v2/
+ProxyPassReverse /v2/ http://127.0.0.1:4321/v2/
+```
+
+Prefix na backendu **neodstraňujte**. Vzor řeší i přesměrování `/v2` na `/v2/` a důvěryhodné HTTPS hlavičky. Nahraďte doménu, port a prefix podle své konfigurace; specifická pravidla dejte před případné obecnější proxy pravidlo pro `/`.
+
+U OIDC klienta povolte přesnou návratovou adresu `https://druzstvo.hkfree.org/v2/auth/callback`. Web pak otevřete na `/v2/`, administraci na `/v2/admin`. Bez úpravy registrace callbacku přihlášení v podsložce nebude fungovat.
+
+Obsah ve volume nepřesouvejte ani neupravujte: uložené cesty k obrázkům a PDF zůstávají bez prefixu, web prefix doplňuje při vykreslování. Pro přechod do kořene nastavte `BASE_PATH=/`, obnovte konfiguraci Apache pro kořen, povolte callback `/auth/callback` a aplikaci znovu sestavte.
+
+Pro kontrolu obou variant lze spustit běžný build a produkční test, potom `BASE_PATH=/v2 npm run build` a `TEST_BASE_PATH=/v2 npm run test:production`. Prefix je potřeba ověřit také v prohlížeči: navigaci, načtení redakce, uložení a nahrání souboru. Integrace `integrations/keystatic-base.mjs` přizpůsobuje pevné adresy Keystaticu; při aktualizaci této knihovny zachovejte tuto kontrolu.
 
 ### Jednorázové nastavení OIDC přihlášení
 
@@ -77,6 +104,7 @@ Do `.env` vyplňte:
 | Proměnná | Hodnota |
 | --- | --- |
 | `DOMAIN` | Veřejná doména bez `https://`, například `druzstvo.example.cz`; musí být nastavená už při sestavení. |
+| `BASE_PATH` | Volitelný prefix jako `/v2`; výchozí `/`. Musí být nastavený při sestavení. |
 | `AUTH_ORIGIN` | `https://druzstvo.example.cz`, bez cesty; Docker Compose ji nastaví automaticky podle `DOMAIN`. |
 | `OIDC_ISSUER` | Přesný issuer poskytovatele; endpointy a klíče se načtou z OIDC discovery. Použijte issuer, nikoli celou adresu `.well-known/openid-configuration`. |
 | `OIDC_CLIENT_ID` | ID registrovaného webového klienta. |
@@ -143,6 +171,7 @@ npm run test:production
 - `src/lib/server/` — čtení obsahu, OIDC přihlášení a vývojový fallback
 - `src/pages/auth/` — přihlášení, návrat od poskytovatele a odhlášení
 - `src/middleware.ts` — ochrana administrace a API
+- `src/lib/paths.ts`, `integrations/keystatic-base.mjs` — prefix webu a adaptace Keystaticu
 - `keystatic.config.ts` — formuláře novinek a dokumentů
 - `src/content/dokumenty/` — počáteční dokumenty a jejich zdroje
 - `src/content/stranky/` — počáteční obsah podrobných kontaktů

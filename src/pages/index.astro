@@ -1,4 +1,5 @@
 ---
+import { sitePath } from '../lib/paths';
 import Layout from '../layouts/Layout.astro';
 import NewsCards from '../components/NewsCards.astro';
 import Documents from '../components/Documents.astro';
@@ -148,7 +149,7 @@ const news = await getPublishedNews();
       </div>
       <div class="step rv">
         <h3>Instalace a smlouva</h3>
-        <p>Domluvíme termín, technici namontují anténu či přivedou optiku a podepíšete smlouvu. <a href="/#dokumenty">Vzor najdete v dokumentech</a>.</p>
+        <p>Domluvíme termín, technici namontují anténu či přivedou optiku a podepíšete smlouvu. <a href={sitePath('/#dokumenty')}>Vzor najdete v dokumentech</a>.</p>
       </div>
       <div class="step rv">
         <h3>Jste členem</h3>
@@ -202,7 +203,7 @@ const news = await getPublishedNews();
       <h2>Co je nového v síti</h2>
     </div>
     <NewsCards entries={news.slice(0, 3)} />
-    <div class="news-actions"><a class="btn btn-dark" href="/novinky/">Všechny novinky →</a></div>
+    <div class="news-actions"><a class="btn btn-dark" href={sitePath('/novinky/')}>Všechny novinky →</a></div>
   </div>
 </section>
 
@@ -232,7 +233,7 @@ const news = await getPublishedNews();
             <div class="pay-row"><span>Fakturace</span><b><a href="mailto:fakturace@hkfree.org">fakturace@hkfree.org</a></b></div>
             <div class="pay-row"><span>Sídlo</span><b>Heyrovského 1178/6, Hradec Králové</b></div>
           </div>
-          <a class="btn btn-dark contact-details" href="/kontakt/">Podrobné kontakty →</a>
+          <a class="btn btn-dark contact-details" href={sitePath('/kontakt/')}>Podrobné kontakty →</a>
         </div>
       </div>
     </div>

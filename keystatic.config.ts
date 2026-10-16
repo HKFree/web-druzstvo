@@ -1,5 +1,6 @@
 import { collection, config, fields, singleton } from '@keystatic/core';
 import { validPdf } from './src/lib/pdf.mjs';
+import { sitePath } from './src/lib/paths';
 
 const pdfUpload = fields.file({
   label: 'PDF dokument',
@@ -44,7 +45,7 @@ export default config({
         title: fields.slug({
           name: { label: 'Název dokumentu', validation: { isRequired: true, length: { max: 200 } } },
           slug: {
-            description: 'Určuje stálou adresu /dokumenty/identifikator.pdf. Po zveřejnění ho neměňte.',
+            description: `Určuje stálou adresu ${sitePath('/dokumenty/identifikator.pdf')}. Po zveřejnění ho neměňte.`,
             validation: { pattern: { regex: /^[a-zA-Z0-9_-]+$/, message: 'Použijte písmena bez diakritiky, číslice a pomlčky.' } },
           },
         }),

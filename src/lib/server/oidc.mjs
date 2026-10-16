@@ -1,5 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import * as oidc from 'openid-client';
+import { normalizeBasePath, prefixPath, stripBasePath } from '../base-path.mjs';
 
 export const SESSION_COOKIE = '__Host-hkfree_session';
 export const TRANSACTION_COOKIE = '__Host-hkfree_oidc';
@@ -9,7 +10,8 @@ export const TRANSACTION_SECONDS = 5 * 60;
 export const cookieOptions = { path: '/', httpOnly: true, secure: true, sameSite: 'lax' };
 const list = value => (value ?? '').split(',').map(item => item.trim()).filter(Boolean);
 
-export function readAuthConfig(env, development = false) {
+export function readAuthConfig(env, development = false, prefix = '') {
+  const basePath = normalizeBasePath(prefix);
   const mode = env.AUTH_MODE || (development ? 'password' : 'oidc');
   if (mode === 'password') {
     if (!development) throw new Error('Přihlášení heslem je povolené pouze ve vývojovém serveru.');
@@ -35,7 +37,8 @@ export function readAuthConfig(env, development = false) {
   return {
     mode, origin: origin.origin, issuer: issuer.href, clientId: env.OIDC_CLIENT_ID,
     clientSecret: env.OIDC_CLIENT_SECRET, clientAuthMethod, subjects, emails, allowAllAuthenticated,
-    redirectUri: `${origin.origin}/auth/callback`,
+    basePath,
+    redirectUri: `${origin.origin}${prefixPath('/auth/callback', basePath)}`,
   };
 }
 
@@ -45,13 +48,15 @@ export function authorizedIdentity(claims, config) {
       && config.emails.includes(claims.email.toLowerCase())));
 }
 
-export function safeReturnTo(value) {
-  if (typeof value !== 'string' || value.includes('\\') || value.includes('%') || value.includes('#')) return '/keystatic';
+export function safeReturnTo(value, base = '') {
+  const fallback = prefixPath('/keystatic', base);
+  if (typeof value !== 'string' || value.includes('\\') || value.includes('%') || value.includes('#')) return fallback;
   try {
     const url = new URL(value, 'https://internal.invalid');
-    if (url.origin === 'https://internal.invalid' && (url.pathname === '/keystatic' || url.pathname.startsWith('/keystatic/'))) return url.pathname + url.search;
+    const path = stripBasePath(url.pathname, base);
+    if (url.origin === 'https://internal.invalid' && (path === '/keystatic' || path?.startsWith('/keystatic/'))) return url.pathname + url.search;
   } catch {}
-  return '/keystatic';
+  return fallback;
 }
 
 // Only opaque random tokens reach the browser. Provider tokens stay on the server
@@ -109,13 +114,13 @@ export async function beginLogin(config, returnTo) {
     redirect_uri: config.redirectUri, response_type: 'code', scope: 'openid email profile',
     state, nonce, code_challenge: challenge, code_challenge_method: 'S256',
   });
-  const transaction = logins.transaction({ verifier, state, nonce, returnTo: safeReturnTo(returnTo), issuer: config.issuer });
+  const transaction = logins.transaction({ verifier, state, nonce, returnTo: safeReturnTo(returnTo, config.basePath), issuer: config.issuer });
   return { url, transaction };
 }
 
 export async function finishLogin(config, url, transactionToken) {
   const transaction = logins.consume(transactionToken);
-  if (!transaction || transaction.issuer !== config.issuer || url.origin !== config.origin || url.pathname !== '/auth/callback') {
+  if (!transaction || transaction.issuer !== config.issuer || url.origin !== config.origin || url.pathname !== new URL(config.redirectUri).pathname) {
     throw new Error('Přihlašovací požadavek vypršel nebo není platný.');
   }
   const configuration = await client(config);

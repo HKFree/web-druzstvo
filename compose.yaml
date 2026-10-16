@@ -4,6 +4,7 @@ services:
       context: .
       args:
         DOMAIN: ${DOMAIN:?Nastavte DOMAIN v souboru .env}
+        BASE_PATH: ${BASE_PATH:-/}
     restart: unless-stopped
     ports:
       - '127.0.0.1:${WEB_PORT:-4321}:4321'

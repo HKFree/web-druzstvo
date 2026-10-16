@@ -1,4 +1,5 @@
 ---
+import { sitePath } from '../lib/paths';
 import Logo from './Logo.astro';
 ---
 <div class="statusbar">
@@ -13,15 +14,15 @@ import Logo from './Logo.astro';
 <!-- header -->
 <header class="site">
   <div class="wrap">
-    <a class="logo" href="/" aria-label="hkfree.org — úvodní stránka"><Logo /></a>
+    <a class="logo" href={sitePath('/')} aria-label="hkfree.org — úvodní stránka"><Logo /></a>
     <nav class="main" id="main-nav" aria-label="Hlavní navigace">
-      <a href="/#kdo-jsme">Kdo jsme</a>
-      <a href="/#pripojeni">Připojení</a>
-      <a href="/#cena">Cena</a>
-      <a href="/#novinky">Novinky</a>
-      <a href="/#dokumenty">Dokumenty</a>
-      <a href="/#kontakt">Kontakt</a>
-      <a class="btn btn-red cta" href="/#pripojeni">Chci se připojit</a>
+      <a href={sitePath('/#kdo-jsme')}>Kdo jsme</a>
+      <a href={sitePath('/#pripojeni')}>Připojení</a>
+      <a href={sitePath('/#cena')}>Cena</a>
+      <a href={sitePath('/#novinky')}>Novinky</a>
+      <a href={sitePath('/#dokumenty')}>Dokumenty</a>
+      <a href={sitePath('/#kontakt')}>Kontakt</a>
+      <a class="btn btn-red cta" href={sitePath('/#pripojeni')}>Chci se připojit</a>
     </nav>
     <button class="burger" type="button" aria-controls="main-nav" aria-expanded="false">MENU</button>
   </div>

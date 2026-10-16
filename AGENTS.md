@@ -17,6 +17,7 @@ Platí pro celý repozitář. Provozní a redakční návod je v [README.md](REA
 - Produkce používá OIDC. Při `OIDC_ALLOW_ALL_AUTHENTICATED=true` řídí oprávnění poskytovatel a každý úspěšně přihlášený uživatel je redaktor. Zachovejte ověřování tokenů a ochranu administrace i API.
 - Přihlášení heslem je pouze vývojový fallback. Produkce se na něj při chybě OIDC nesmí přepnout. Lokální `AUTH_MODE` měňte pouze podle požadavku uživatele.
 - Docker Compose spouští jedinou HTTP službu na `127.0.0.1:${WEB_PORT:-4321}`. HTTPS řeší externí Apache2 s vlastním certifikátem; vzor je v `deploy/apache2.conf`.
+- `BASE_PATH` je prefix celého webu nastavený při buildu (výchozí `/`). Používejte `sitePath()` pro interní URL, zachovejte prefix v Apache i na backendu. Uložený obsah má cesty bez prefixu. Při úpravách routingu ověřte kořen i `/v2/`, včetně Keystaticu a OIDC.
 - `AUTH_ORIGIN` je veřejná HTTPS adresa i při interním HTTP spojení. Zachovejte předávání důvěryhodných proxy hlaviček a kontrolu původu zapisovacích požadavků.
 
 ## Design

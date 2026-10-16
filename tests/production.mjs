@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { createServer } from 'node:net';
 import { createProvider, cookieClient } from './helpers/oidc-provider.mjs';
+import { normalizeBasePath } from '../src/lib/base-path.mjs';
 import { SESSION_COOKIE, TRANSACTION_COOKIE } from '../src/lib/server/oidc.mjs';
 
 test('production OIDC authentication, authorization and live editing', { timeout: 60_000 }, async () => {
@@ -14,7 +15,10 @@ test('production OIDC authentication, authorization and live editing', { timeout
   await new Promise(done => socket.listen(0, '127.0.0.1', done));
   const port = socket.address().port;
   await new Promise(done => socket.close(done));
-  const base = `https://127.0.0.1:${port}`;
+  const origin = `https://127.0.0.1:${port}`;
+  const prefix = normalizeBasePath(process.env.TEST_BASE_PATH);
+  const route = path => prefix + path;
+  const base = origin + prefix;
   const provider = await createProvider(work);
   const anonymous = provider.fetchLocal;
   const entrypoint = resolve('dist/server/entry.mjs');
@@ -26,7 +30,7 @@ test('production OIDC authentication, authorization and live editing', { timeout
       env: { ...process.env, NODE_ENV: 'production', HOST: '127.0.0.1', PORT: String(port),
         CONTENT_DIR: join(work, 'content'), ADMIN_USERNAME: 'test', ADMIN_PASSWORD: 'must-never-work-in-production',
         NODE_EXTRA_CA_CERTS: provider.certPath, SERVER_CERT_PATH: provider.certPath, SERVER_KEY_PATH: provider.keyPath,
-        AUTH_MODE: 'oidc', AUTH_ORIGIN: base, OIDC_ISSUER: provider.issuer, OIDC_CLIENT_ID: 'test-web',
+        AUTH_MODE: 'oidc', AUTH_ORIGIN: origin, OIDC_ISSUER: provider.issuer, OIDC_CLIENT_ID: 'test-web',
         OIDC_CLIENT_SECRET: 'test-secret', OIDC_ALLOWED_SUBJECTS: 'editor-1', OIDC_ALLOWED_EMAILS: '', OIDC_ALLOW_ALL_AUTHENTICATED: 'false',
         ...overrides },
       stdio: ['ignore', 'pipe', 'pipe'],
@@ -48,7 +52,7 @@ test('production OIDC authentication, authorization and live editing', { timeout
   }
   async function login(flags = {}, tamperState = false) {
     const browser = cookieClient(provider.fetchLocal);
-    const start = await browser.request(base + '/auth/login?returnTo=/keystatic/collection/novinky');
+    const start = await browser.request(base + '/auth/login?' + new URLSearchParams({ returnTo: route('/keystatic/collection/novinky') }));
     assert.equal(start.status, 302);
     const transactionCookie = start.headers.getSetCookie().find(value => value.startsWith(TRANSACTION_COOKIE + '='));
     assert.match(transactionCookie, /Secure/);
@@ -57,6 +61,7 @@ test('production OIDC authentication, authorization and live editing', { timeout
     const authorize = new URL(start.headers.get('location'));
     assert.equal(authorize.origin, provider.issuer);
     assert.equal(authorize.searchParams.get('code_challenge_method'), 'S256');
+    assert.equal(authorize.searchParams.get('redirect_uri'), base + '/auth/callback');
     assert.ok(authorize.searchParams.get('nonce'));
     for (const [key, value] of Object.entries(flags)) authorize.searchParams.set(key, value);
     const issued = await browser.request(authorize);
@@ -69,15 +74,27 @@ test('production OIDC authentication, authorization and live editing', { timeout
   const source = draft => `---\ntitle: Živá novinka\npublishedAt: 2026-01-01\ncategory: sit\nexcerpt: Úprava bez sestavení\ndraft: ${draft}\n---\n\nText novinky.\n\n![Test](/images/novinky/live/test.png)\n`;
   const addition = (path, contents) => ({ path, contents: Buffer.from(contents).toString('base64url') });
   let editor;
-  const update = (data, origin = base) => editor.request(base + '/api/keystatic/update', {
-    method: 'POST', headers: { origin, 'content-type': 'application/json', 'no-cors': '1' }, body: JSON.stringify(data),
+  const update = (data, requestOrigin = origin) => editor.request(base + '/api/keystatic/update', {
+    method: 'POST', headers: { origin: requestOrigin, 'content-type': 'application/json', 'no-cors': '1' }, body: JSON.stringify(data),
   });
   try {
     await start();
+    const homepage = await (await anonymous(base + '/')).text();
+    for (const path of ['/kontakt/', '/novinky/', '/images/hkfree-logo-druzstvo.png', '/favicon.ico']) {
+      assert.ok(homepage.includes(`"${route(path)}"`), path);
+    }
+    const admin = await anonymous(base + '/admin');
+    assert.equal(admin.status, 302);
+    assert.equal(admin.headers.get('location'), route('/keystatic'));
+    if (prefix) {
+      for (const path of ['/api/keystatic/tree', '/keystatic', '/kontakt/']) {
+        assert.equal((await anonymous(origin + path, { headers: { 'no-cors': '1' } })).status, 404, path);
+      }
+    }
     for (const path of ['/keystatic', '/%6beystatic/collection/novinky']) {
       const response = await anonymous(base + path);
       assert.equal(response.status, 302);
-      assert.ok(response.headers.get('location').startsWith('/auth/login?'));
+      assert.ok(response.headers.get('location').startsWith(route('/auth/login?')));
     }
     for (const path of ['/api/keystatic/tree', '/api/%6beystatic/tree', '/api%2Fkeystatic/tree']) {
       assert.equal((await anonymous(base + path)).status, 401, path);
@@ -86,7 +103,7 @@ test('production OIDC authentication, authorization and live editing', { timeout
     assert.equal((await anonymous(base + '/api/keystatic/tree', { headers: { authorization: basic } })).status, 401);
     const allowed = await login();
     assert.equal(allowed.response.status, 302);
-    assert.equal(allowed.response.headers.get('location'), '/keystatic/collection/novinky', logs);
+    assert.equal(allowed.response.headers.get('location'), route('/keystatic/collection/novinky'), logs);
     assert.ok(allowed.browser.cookies.get(SESSION_COOKIE));
     assert.equal(allowed.browser.cookies.has(TRANSACTION_COOKIE), false);
     const editorPage = await allowed.browser.request(base + '/keystatic');
@@ -94,7 +111,7 @@ test('production OIDC authentication, authorization and live editing', { timeout
     assert.equal(editorPage.headers.get('referrer-policy'), 'same-origin');
     assert.equal(allowed.response.headers.get('referrer-policy'), 'no-referrer');
     const replay = await allowed.browser.request(allowed.callback);
-    assert.equal(replay.headers.get('location'), '/auth/error');
+    assert.equal(replay.headers.get('location'), route('/auth/error'));
     editor = allowed.browser;
     assert.match(await (await anonymous(base + '/kontakt/')).text(), /Nay-Tech/);
     const contactSource = '---\ntitle: Živé kontakty\ndescription: Upravený úvod\n---\n\n## Technická podpora\n\n[Telefon](tel:+420608101070)\n';
@@ -109,7 +126,7 @@ test('production OIDC authentication, authorization and live editing', { timeout
       [{ test_signature: 'bad' }, false], [{ test_expired: 'yes' }, false], [{}, true],
     ]) {
       const denied = await login(flags, tamper);
-      assert.ok(denied.response.headers.get('location').startsWith('/auth/error'));
+      assert.ok(denied.response.headers.get('location').startsWith(route('/auth/error')));
       assert.equal(denied.browser.cookies.has(SESSION_COOKIE), false);
       assert.equal((await denied.browser.request(base + '/api/keystatic/tree')).status, 401);
     }
@@ -159,7 +176,7 @@ test('production OIDC authentication, authorization and live editing', { timeout
     assert.equal(publishedPdf.headers.get('cache-control'), 'no-store');
     assert.equal(await publishedPdf.text(), originalPdf);
     const home = await (await anonymous(base)).text();
-    assert.ok(home.indexOf('href="/dokumenty/test-document.pdf"') < home.indexOf('href="/dokumenty/vseobecne-obchodni-podminky.pdf"'));
+    assert.ok(home.indexOf('href="' + prefix + '/dokumenty/test-document.pdf"') < home.indexOf('href="' + prefix + '/dokumenty/vseobecne-obchodni-podminky.pdf"'));
     const replacementPdf = '%PDF-1.7\nReplaced document\n%%EOF';
     result = await update({ additions: [addition(pdfPath, replacementPdf)], deletions: [] });
     assert.equal(result.status, 200, await result.text());
@@ -170,13 +187,13 @@ test('production OIDC authentication, authorization and live editing', { timeout
     result = await update({ additions: [addition(documentPath, documentData(true))], deletions: [] });
     assert.equal(result.status, 200);
     assert.equal((await anonymous(documentUrl)).status, 404);
-    assert.doesNotMatch(await (await anonymous(base)).text(), /href="\/dokumenty\/test-document.pdf"/);
+    assert.ok(!(await (await anonymous(base)).text()).includes(`href="${prefix}/dokumenty/test-document.pdf"`));
     result = await update({ additions: [addition(documentPath, documentData(false))], deletions: [] });
     assert.equal(result.status, 200);
 
     const staleToken = editor.cookies.get(SESSION_COOKIE);
     assert.equal((await editor.request(base + '/auth/logout', { method: 'POST', headers: { origin: 'https://cizi.example' } })).status, 403);
-    assert.equal((await editor.request(base + '/auth/logout', { method: 'POST', headers: { origin: base } })).status, 303);
+    assert.equal((await editor.request(base + '/auth/logout', { method: 'POST', headers: { origin } })).status, 303);
     assert.equal((await editor.request(base + '/api/keystatic/tree', { headers: { cookie: `${SESSION_COOKIE}=${staleToken}` } })).status, 401);
     editor = (await login()).browser;
     await stop();
@@ -196,11 +213,11 @@ test('production OIDC authentication, authorization and live editing', { timeout
     await stop();
     await start({ OIDC_CLIENT_AUTH_METHOD: 'client_secret_post' });
     const postClient = await login();
-    assert.equal(postClient.response.headers.get('location'), '/keystatic/collection/novinky');
+    assert.equal(postClient.response.headers.get('location'), route('/keystatic/collection/novinky'));
     await stop();
     await start({ OIDC_ALLOW_ALL_AUTHENTICATED: 'true', OIDC_ALLOWED_SUBJECTS: '' });
     const providerManaged = await login({ test_subject: 'provider-approved-editor' });
-    assert.equal(providerManaged.response.headers.get('location'), '/keystatic/collection/novinky');
+    assert.equal(providerManaged.response.headers.get('location'), route('/keystatic/collection/novinky'));
     assert.equal((await providerManaged.browser.request(base + '/keystatic')).status, 200);
     editor = providerManaged.browser;
     result = await update({ additions: [], deletions: [] });

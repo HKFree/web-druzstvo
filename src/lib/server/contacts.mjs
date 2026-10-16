@@ -6,12 +6,12 @@ import { z } from 'zod';
 import { renderContent } from './storage.mjs';
 
 const schema = z.object({ title: z.string().trim().min(1), description: z.string().trim().min(1) });
-export function parseContactPage(source) {
+export function parseContactPage(source, base = '') {
   const ast = Markdoc.parse(source);
-  return { data: schema.parse(parse(ast.attributes.frontmatter ?? '')), html: renderContent(ast) };
+  return { data: schema.parse(parse(ast.attributes.frontmatter ?? '')), html: renderContent(ast, base) };
 }
 
-export function createContactStore(root, seed) {
+export function createContactStore(root, seed, base = '') {
   const directory = join(root, 'content/stranky');
   const file = join(directory, 'kontakt.mdoc');
   let initialized;
@@ -26,7 +26,7 @@ export function createContactStore(root, seed) {
   }
   async function read() {
     await ready();
-    return parseContactPage(await readFile(file, 'utf8'));
+    return parseContactPage(await readFile(file, 'utf8'), base);
   }
   return { ready, read };
 }

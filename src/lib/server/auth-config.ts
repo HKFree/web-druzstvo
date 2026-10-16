@@ -1,5 +1,6 @@
 import { getSecret } from 'astro:env/server';
 import { readAuthConfig } from './oidc.mjs';
+import { basePath } from '../paths';
 
 const keys = [
   'AUTH_MODE', 'ADMIN_USERNAME', 'ADMIN_PASSWORD', 'AUTH_ORIGIN', 'OIDC_ISSUER',
@@ -7,5 +8,5 @@ const keys = [
   'OIDC_ALLOWED_SUBJECTS', 'OIDC_ALLOWED_EMAILS', 'OIDC_ALLOW_ALL_AUTHENTICATED',
 ];
 export function authConfig() {
-  return readAuthConfig(Object.fromEntries(keys.map(key => [key, getSecret(key)])), import.meta.env.DEV);
+  return readAuthConfig(Object.fromEntries(keys.map(key => [key, getSecret(key)])), import.meta.env.DEV, basePath);
 }

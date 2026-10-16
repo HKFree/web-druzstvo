@@ -1,4 +1,5 @@
 ---
+import { sitePath } from '../../lib/paths';
 import Editor from '../../components/Editor';
 import { authConfig } from '../../lib/server/auth-config';
 const oauth = authConfig().mode === 'oidc';
@@ -10,10 +11,11 @@ const oauth = authConfig().mode === 'oidc';
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="robots" content="noindex, nofollow" />
     <title>Redakce | hkfree.org</title>
+    <link rel="icon" href={sitePath('/favicon.ico')} sizes="any" />
   </head>
   <body>
     <Editor client:only="react" />
-    {oauth && <form action="/auth/logout" method="post" style="position:fixed;bottom:16px;left:16px;z-index:1000">
+    {oauth && <form action={sitePath('/auth/logout')} method="post" style="position:fixed;bottom:16px;left:16px;z-index:1000">
       <button type="submit" style="background:#fff;color:#16181d;border:1px solid #ccc;border-radius:8px;padding:8px 12px;cursor:pointer">Odhlásit se</button>
     </form>}
   </body>

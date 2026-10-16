@@ -1,13 +1,14 @@
 ---
+import { sitePath } from '../../lib/paths';
 import Layout from '../../layouts/Layout.astro';
 import { categories, formatDate } from '../../lib/news.mjs';
 import { getPublishedNews } from '../../lib/server/content';
 const entry = (await getPublishedNews()).find(item => item.id === Astro.params.slug);
-if (!entry) return Astro.rewrite('/404');
+if (!entry) return Astro.rewrite(sitePath('/404'));
 ---
 <Layout title={`${entry.data.title} | hkfree.org`} description={entry.data.excerpt}>
   <div class="wrap article-wrap">
-    <nav class="breadcrumb" aria-label="Drobečková navigace"><a href="/">Úvod</a> / <a href="/novinky/">Novinky</a></nav>
+    <nav class="breadcrumb" aria-label="Drobečková navigace"><a href={sitePath('/')}>Úvod</a> / <a href={sitePath('/novinky/')}>Novinky</a></nav>
     <article>
       <header class="article-header">
         <div class="meta"><time datetime={entry.data.publishedAt}>{formatDate(entry.data.publishedAt)}</time> · {categories[entry.data.category]}</div>
@@ -15,7 +16,7 @@ if (!entry) return Astro.rewrite('/404');
         <p class="article-lead">{entry.data.excerpt}</p>
       </header>
       <div class="prose"><Fragment set:html={entry.html} /></div>
-      <div class="article-footer"><a class="btn btn-dark" href="/novinky/">← Všechny novinky</a></div>
+      <div class="article-footer"><a class="btn btn-dark" href={sitePath('/novinky/')}>← Všechny novinky</a></div>
     </article>
   </div>
 </Layout>

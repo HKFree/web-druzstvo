@@ -2,10 +2,14 @@ import { defineMiddleware } from 'astro:middleware';
 import { isEditorPath, validCredentials } from './lib/server/auth.mjs';
 import { authConfig } from './lib/server/auth-config';
 import { logins, SESSION_COOKIE } from './lib/server/oidc.mjs';
+import { appPath, sitePath } from './lib/paths';
 
 export const onRequest = defineMiddleware(async (context, next) => {
-  const editor = isEditorPath(context.url.pathname);
-  const authRoute = context.url.pathname.startsWith('/auth/');
+  let path;
+  try { path = appPath(decodeURIComponent(context.url.pathname)); } catch { path = undefined; }
+  if (path === undefined) return new Response('Stránka nebyla nalezena.', { status: 404, headers: { 'Cache-Control': 'no-store' } });
+  const editor = isEditorPath(path);
+  const authRoute = path.startsWith('/auth/');
   if (editor) {
     let config;
     try { config = authConfig(); }
@@ -22,13 +26,13 @@ export const onRequest = defineMiddleware(async (context, next) => {
         });
       }
     } else if (!logins.get(context.cookies.get(SESSION_COOKIE)?.value, config)) {
-      if (decodeURIComponent(context.url.pathname).startsWith('/api/')) {
+      if (path?.startsWith('/api/')) {
         return new Response(JSON.stringify({ error: 'Přihlášení vypršelo. Znovu otevřete administraci.' }), {
           status: 401, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
         });
       }
       const target = new URLSearchParams({ returnTo: context.url.pathname + context.url.search });
-      return context.redirect(`/auth/login?${target}`, 302);
+      return context.redirect(sitePath(`/auth/login?${target}`), 302);
     }
     if (!['GET', 'HEAD'].includes(context.request.method)
       && context.request.headers.get('origin') !== context.url.origin) {

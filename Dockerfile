@@ -4,6 +4,7 @@ COPY package.json package-lock.json ./
 RUN npm ci --include=dev
 COPY . .
 ARG DOMAIN
+ARG BASE_PATH=/
 RUN npm run build && npm prune --omit=dev
 
 FROM node:24-bookworm-slim

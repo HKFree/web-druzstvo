@@ -1,12 +1,13 @@
 ---
 import type { NewsEntry } from '../lib/server/content';
 import { categories, formatDate } from '../lib/news.mjs';
+import { sitePath } from '../lib/paths';
 interface Props { entries: NewsEntry[]; }
 const { entries } = Astro.props;
 ---
 {entries.length ? <div class="news">
   {entries.map(entry => (
-    <a href={`/novinky/${entry.id}/`} class="rv">
+    <a href={sitePath(`/novinky/${entry.id}/`)} class="rv">
       <span class="meta"><time datetime={entry.data.publishedAt}>{formatDate(entry.data.publishedAt)}</time> · {categories[entry.data.category]}</span>
       <h3>{entry.data.title}</h3>
       <p>{entry.data.excerpt}</p>
