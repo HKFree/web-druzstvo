@@ -127,6 +127,46 @@ test('production OIDC authentication, authorization and live editing', { timeout
         'content-type': 'application/json', 'no-cors': '1' }, body: JSON.stringify({ additions: [], deletions: [] }) });
     assert.equal(result.status, 200);
 
+    // Document PDFs use runtime storage and a stable public URL independent of their filename.
+    const importedDocuments = JSON.parse(await (await import('node:fs/promises')).readFile(resolve('src/content/dokumenty/initial.json'), 'utf8'));
+    const { createHash } = await import('node:crypto');
+    for (const document of importedDocuments) {
+      const response = await anonymous(base + `/dokumenty/${document.id}.pdf`);
+      assert.equal(response.status, 200);
+      assert.equal(response.headers.get('content-type'), 'application/pdf');
+      assert.equal(createHash('sha256').update(Buffer.from(await response.arrayBuffer())).digest('hex'), document.sourceSha256);
+    }
+    const documentPath = 'content/dokumenty/test-document.yaml';
+    const pdfPath = 'files/dokumenty/test-document/file.pdf';
+    const documentUrl = base + '/dokumenty/test-document.pdf';
+    const documentData = draft => JSON.stringify({ title: 'Spravovaný dokument', order: 0, draft, file: '/' + pdfPath });
+    const originalPdf = '%PDF-1.4\nOriginal document\n%%EOF';
+    result = await update({ additions: [addition(documentPath, documentData(true)), addition(pdfPath, originalPdf)], deletions: [] });
+    assert.equal(result.status, 200, await result.text());
+    assert.equal((await anonymous(documentUrl)).status, 404);
+    assert.equal((await anonymous(base + '/' + pdfPath)).status, 404);
+    result = await update({ additions: [addition(documentPath, documentData(false))], deletions: [] });
+    assert.equal(result.status, 200, await result.text());
+    const publishedPdf = await anonymous(documentUrl);
+    assert.equal(publishedPdf.status, 200);
+    assert.equal(publishedPdf.headers.get('cache-control'), 'no-store');
+    assert.equal(await publishedPdf.text(), originalPdf);
+    const home = await (await anonymous(base)).text();
+    assert.ok(home.indexOf('href="/dokumenty/test-document.pdf"') < home.indexOf('href="/dokumenty/vseobecne-obchodni-podminky.pdf"'));
+    const replacementPdf = '%PDF-1.7\nReplaced document\n%%EOF';
+    result = await update({ additions: [addition(pdfPath, replacementPdf)], deletions: [] });
+    assert.equal(result.status, 200, await result.text());
+    assert.equal(await (await anonymous(documentUrl)).text(), replacementPdf);
+    result = await update({ additions: [addition(pdfPath, 'not a PDF')], deletions: [] });
+    assert.equal(result.status, 400);
+    assert.equal(await (await anonymous(documentUrl)).text(), replacementPdf);
+    result = await update({ additions: [addition(documentPath, documentData(true))], deletions: [] });
+    assert.equal(result.status, 200);
+    assert.equal((await anonymous(documentUrl)).status, 404);
+    assert.doesNotMatch(await (await anonymous(base)).text(), /href="\/dokumenty\/test-document.pdf"/);
+    result = await update({ additions: [addition(documentPath, documentData(false))], deletions: [] });
+    assert.equal(result.status, 200);
+
     const staleToken = editor.cookies.get(SESSION_COOKIE);
     assert.equal((await editor.request(base + '/auth/logout', { method: 'POST', headers: { origin: 'https://cizi.example' } })).status, 403);
     assert.equal((await editor.request(base + '/auth/logout', { method: 'POST', headers: { origin: base } })).status, 303);
@@ -136,11 +176,15 @@ test('production OIDC authentication, authorization and live editing', { timeout
     await start();
     assert.equal((await anonymous(base + '/novinky/live/')).status, 200);
     assert.equal((await anonymous(base + '/images/novinky/live/test.png')).status, 200);
+    assert.equal(await (await anonymous(documentUrl)).text(), replacementPdf);
     assert.equal((await editor.request(base + '/api/keystatic/tree')).status, 401);
     editor = (await login()).browser;
     result = await update({ additions: [], deletions: [{ path }] });
     assert.equal(result.status, 200);
     assert.equal((await anonymous(base + '/novinky/live/')).status, 404);
+    result = await update({ additions: [], deletions: [{ path: documentPath }, { path: pdfPath }] });
+    assert.equal(result.status, 200);
+    assert.equal((await anonymous(documentUrl)).status, 404);
     await stop();
     await start({ OIDC_CLIENT_AUTH_METHOD: 'client_secret_post' });
     const postClient = await login();

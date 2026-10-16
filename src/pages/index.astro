@@ -1,6 +1,7 @@
 ---
 import Layout from '../layouts/Layout.astro';
 import NewsCards from '../components/NewsCards.astro';
+import Documents from '../components/Documents.astro';
 import { getPublishedNews } from '../lib/server/content';
 const news = await getPublishedNews();
 ---
@@ -147,7 +148,7 @@ const news = await getPublishedNews();
       </div>
       <div class="step rv">
         <h3>Instalace a smlouva</h3>
-        <p>Domluvíme termín, technici namontují anténu či přivedou optiku a podepíšete smlouvu. <a href="https://druzstvo.hkfree.org/dokumenty/">Vzor najdete v dokumentech</a>.</p>
+        <p>Domluvíme termín, technici namontují anténu či přivedou optiku a podepíšete smlouvu. <a href="/#dokumenty">Vzor najdete v dokumentech</a>.</p>
       </div>
       <div class="step rv">
         <h3>Jste členem</h3>
@@ -214,14 +215,7 @@ const news = await getPublishedNews();
           <div class="eyebrow">dokumenty</div>
           <h2>Vše černé na bílém</h2>
         </div>
-        <ul class="doclist rv" id="kontakt-docs">
-          <li><a href="https://druzstvo.hkfree.org/dokumenty/"><span class="tag">PDF</span>Všeobecné obchodní podmínky<span class="arrow">→</span></a></li>
-          <li><a href="https://druzstvo.hkfree.org/dokumenty/"><span class="tag">PDF</span>Ceník a technická specifikace služeb<span class="arrow">→</span></a></li>
-          <li><a href="https://druzstvo.hkfree.org/dokumenty/"><span class="tag">PDF</span>Vzor smlouvy<span class="arrow">→</span></a></li>
-          <li><a href="https://druzstvo.hkfree.org/dokumenty/"><span class="tag">PDF</span>Reklamační řád a formulář<span class="arrow">→</span></a></li>
-          <li><a href="https://druzstvo.hkfree.org/dokumenty/"><span class="tag">PDF</span>Ochrana osobních údajů (GDPR)<span class="arrow">→</span></a></li>
-          <li><a href="https://druzstvo.hkfree.org/dokumenty/"><span class="tag">PDF</span>Výpověď smlouvy<span class="arrow">→</span></a></li>
-        </ul>
+        <Documents />
       </div>
       <div id="kontakt">
         <div class="sec-head rv" style="margin-bottom:36px">

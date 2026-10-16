@@ -1,0 +1,74 @@
+[
+  {
+    "id": "vseobecne-obchodni-podminky",
+    "title": "Všeobecné obchodní podmínky",
+    "order": 1,
+    "draft": false,
+    "file": "/files/dokumenty/vseobecne-obchodni-podminky/file.pdf",
+    "sourceUrl": "https://druzstvo.hkfree.org/wp-content/uploads/2024/12/VOP_hkfree.pdf",
+    "sourceSha256": "e3b95c27b67a4f261d1a8136f0cc3652469b7a9be8e1eefadac30db62d208df6"
+  },
+  {
+    "id": "cenik",
+    "title": "Ceník",
+    "order": 2,
+    "draft": false,
+    "file": "/files/dokumenty/cenik/file.pdf",
+    "sourceUrl": "https://druzstvo.hkfree.org/wp-content/uploads/2024/12/cenik_2026-08-01.pdf",
+    "sourceSha256": "8d220db6fca0ac2d5f98cc5b0a02f0a4b9250f8711c0fc87475e905a2ae7ff1a"
+  },
+  {
+    "id": "technicka-specifikace-sluzeb",
+    "title": "Technická specifikace služeb",
+    "order": 3,
+    "draft": false,
+    "file": "/files/dokumenty/technicka-specifikace-sluzeb/file.pdf",
+    "sourceUrl": "https://druzstvo.hkfree.org/wp-content/uploads/2024/12/TechnickaSpecifikaceSluzeb202604.pdf",
+    "sourceSha256": "e341de8459941438776dc030b4991a4df7582da2e815b77e1976e1528da1cb36"
+  },
+  {
+    "id": "vzor-smlouvy",
+    "title": "Vzor smlouvy",
+    "order": 4,
+    "draft": false,
+    "file": "/files/dokumenty/vzor-smlouvy/file.pdf",
+    "sourceUrl": "https://druzstvo.hkfree.org/wp-content/uploads/2024/12/SmlouvaUcastnicka_v6_specimen.pdf",
+    "sourceSha256": "02e4fcfa22591ec8024403d8dfd48a2d963721a7fc426ebd7672af6a2123462c"
+  },
+  {
+    "id": "reklamacni-rad",
+    "title": "Reklamační řád",
+    "order": 5,
+    "draft": false,
+    "file": "/files/dokumenty/reklamacni-rad/file.pdf",
+    "sourceUrl": "https://druzstvo.hkfree.org/wp-content/uploads/2024/12/ReklamacniRAD_20260501.pdf",
+    "sourceSha256": "8060aa48bc300d26fdd32c7532021757e792d2a8e9907bb1a9952fcc83766642"
+  },
+  {
+    "id": "reklamacni-formular",
+    "title": "Reklamační formulář",
+    "order": 6,
+    "draft": false,
+    "file": "/files/dokumenty/reklamacni-formular/file.pdf",
+    "sourceUrl": "https://druzstvo.hkfree.org/wp-content/uploads/2024/12/ReklamacnFormular20260501.pdf",
+    "sourceSha256": "3847ee4e7c7dc5a9fd921926fe20e3ef66480a9769fe4a71fc9decf62a214861"
+  },
+  {
+    "id": "ochrana-osobnich-udaju",
+    "title": "Ochrana osobních údajů (GDPR)",
+    "order": 7,
+    "draft": false,
+    "file": "/files/dokumenty/ochrana-osobnich-udaju/file.pdf",
+    "sourceUrl": "https://druzstvo.hkfree.org/wp-content/uploads/2024/12/GDPR.pdf",
+    "sourceSha256": "10cad3128a9ac080f0836b456edc83d80b70d4e7cc7ebb153ae9a3b01773aae2"
+  },
+  {
+    "id": "vypoved-smlouvy",
+    "title": "Výpověď smlouvy",
+    "order": 8,
+    "draft": false,
+    "file": "/files/dokumenty/vypoved-smlouvy/file.pdf",
+    "sourceUrl": "https://druzstvo.hkfree.org/wp-content/uploads/2024/12/Vypoved_Smlouvy_V2.pdf",
+    "sourceSha256": "54603afdf606549a6dbc06b1966e4d3d4ca9be1205904d20fd85e82331cdf5cf"
+  }
+]

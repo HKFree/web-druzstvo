@@ -14,7 +14,7 @@ export default defineConfig({
     ],
   },
   output: 'server',
-  adapter: node({ mode: 'standalone' }),
+  adapter: node({ mode: 'standalone', bodySizeLimit: 16 * 1024 * 1024 }),
   session: false,
   integrations: [react()],
   vite: {

@@ -1,6 +1,6 @@
 # hkfree.org — internetové družstvo
 
-Web v Astro se zachovaným designem z [Pajaaaa/hkf_web](https://github.com/Pajaaaa/hkf_web). Administraci novinek zajišťuje Keystatic přímo na serveru.
+Web v Astro se zachovaným designem z [Pajaaaa/hkf_web](https://github.com/Pajaaaa/hkf_web). Administraci novinek a dokumentů zajišťuje Keystatic přímo na serveru.
 
 ## Pro redaktora
 
@@ -12,6 +12,14 @@ Web v Astro se zachovaným designem z [Pajaaaa/hkf_web](https://github.com/Pajaa
 **Hotovo. Změna je okamžitě na webu.** Redaktor nepotřebuje GitHub, Git, terminál ani spouštět sestavení. Existující odkazy zachováte tím, že po vydání neměníte slug. Smazání článku v administraci ho odstraní také z webu.
 
 Koncepty nejsou veřejné ani přes přímou adresu článku. Budoucí datum článek skryje do příslušného dne podle Europe/Prague; potom se zobrazí při dalším načtení stránky, bez sestavení. Na úvodu jsou tři nejnovější články, na `/novinky/` všechny zveřejněné.
+
+### Dokumenty
+
+V administraci `/admin` vyberte **Dokumenty**. U každého záznamu upravíte název, nahrajete PDF pomocí **Choose file**, nastavíte pořadí (menší číslo je výše) a přepínač **Koncept**. Potom stačí **Save**, případně **Create** u nového dokumentu. PDF musí být do 10 MB. Nový dokument je ve výchozím stavu koncept.
+
+Na webu se seznam ihned aktualizuje. Dokument má stálou adresu `/dokumenty/identifikator.pdf`, například `/dokumenty/cenik.pdf`. Při výměně PDF nebo přejmenování názvu **ponechte původní slug**; veřejný odkaz pak zůstane stejný a vrátí nový soubor. Koncept ani smazaný dokument nelze stáhnout přímým veřejným odkazem. Soubor lze v redakci zkontrolovat tlačítkem **Download**.
+
+Výchozí obsah tvoří osm původních PDF z [webu družstva](https://druzstvo.hkfree.org/dokumenty/), odpovídajících původním položkám této stránky: VOP, ceník, technická specifikace, vzor smlouvy, reklamační řád, reklamační formulář, GDPR a výpověď smlouvy. Ceník/specifikace a řád/formulář jsou rozdělené na samostatné záznamy. Originály jsou v `src/content/dokumenty/files/`; jejich zdroje a kontrolní součty jsou v `src/content/dokumenty/initial.json`.
 
 ## Jednorázové nasazení správcem
 
@@ -56,17 +64,17 @@ V produkci je výchozí režim `oidc` a Compose ho nastavuje výslovně. Bez spr
 
 Relace platí nejvýše osm hodin. V redakci je tlačítko **Odhlásit se**, které tuto relaci zruší; neodhlašuje účet z ostatních služeb hkfree. Relace jsou uložené jen v paměti jedné instance aplikace, takže po restartu je potřeba nové přihlášení. Pro více instancí by bylo nutné doplnit sdílené úložiště relací. Články a obrázky restartem dotčené nejsou.
 
-### Kam se ukládají články a obrázky
+### Kam se ukládá obsah
 
-Obsah se zapisuje přímo do trvalého Docker volume **`content`**, připojeného do aplikace jako `/app/data`. Články jsou soubory Markdoc v `content/novinky/`, obrázky v `images/novinky/`. Web je čte za běhu, takže změny nejsou závislé na sestavení aplikace.
+Obsah se zapisuje přímo do trvalého Docker volume **`content`**, připojeného do aplikace jako `/app/data`. Články jsou soubory Markdoc v `content/novinky/`, obrázky v `images/novinky/`. Záznamy dokumentů jsou v `content/dokumenty/`, nahraná PDF v `files/dokumenty/`. Tyto soubory nejsou veřejně vystavené jako statický adresář; PDF se poskytují přes stálou adresu až po ověření, že je dokument zveřejněný. Web je čte za běhu, takže změny nejsou závislé na sestavení aplikace.
 
-Při úplně prvním spuštění se zkopírují tři ukázkové články z návrhu. Při dalších spuštěních se již obsah nepřepisuje a smazané ukázky se neobnovují. Ukázky obsahují původní souhrny, odkazy na zdroj a prozatímní data; před ostrým spuštěním je ověřte.
+Při úplně prvním spuštění se zkopírují tři ukázkové články z návrhu a osm původních PDF. Dokumenty se jednorázově doplní také při aktualizaci starší instalace, která už obsahuje novinky; existující záznamy ani soubory se nepřepisují. Při dalších spuštěních se již obsah nepřepisuje a smazané ukázky se neobnovují. Ukázky obsahují původní souhrny, odkazy na zdroj a prozatímní data; před ostrým spuštěním je ověřte.
 
-**Zálohujte volume `content`**, například snapshotem disku nebo zálohováním volume při zastavené službě `web`. Git se zdrojovým kódem není záloha článků upravených na serveru. Při přesunu na jiný server přeneste tento volume a `.env`; zálohujte také volume `certificates`, aby se zachovaly HTTPS certifikáty. Pro samotný restart nebo aktualizaci volume nemažte (`docker compose down -v` by obsah odstranilo).
+**Zálohujte volume `content`**, například snapshotem disku nebo zálohováním volume při zastavené službě `web`. Git se zdrojovým kódem není záloha článků a dokumentů upravených na serveru. Při přesunu na jiný server přeneste tento volume a `.env`; zálohujte také volume `certificates`, aby se zachovaly HTTPS certifikáty. Pro samotný restart nebo aktualizaci volume nemažte (`docker compose down -v` by obsah odstranilo).
 
 ### Aktualizace aplikace
 
-Po nahrání nové verze zdrojového kódu znovu spusťte `docker compose up -d --build`. Trvalý volume s články a obrázky zůstane zachovaný. Toto je potřeba jen při změně programu/designu; **úpravy novinek nevyžadují aktualizaci ani restart**.
+Po nahrání nové verze zdrojového kódu znovu spusťte `docker compose up -d --build`. Trvalý volume s články a obrázky zůstane zachovaný. Toto je potřeba jen při změně programu/designu; **úpravy novinek ani dokumentů nevyžadují aktualizaci nebo restart**.
 
 Pro kontrolu provozu použije správce `docker compose logs --tail=100 web proxy`. Po prvním nasazení vyzkoušejte přihlášení, vytvoření článku i obrázek. Pak restartujte aplikaci a ověřte, že obsah zůstal. Docker konfigurace je připravená v repozitáři; DNS a skutečné nasazení musí správce ověřit na cílovém serveru.
 
@@ -107,7 +115,8 @@ npm run test:production
 - `src/lib/server/` — čtení obsahu, OIDC přihlášení a vývojový fallback
 - `src/pages/auth/` — přihlášení, návrat od poskytovatele a odhlášení
 - `src/middleware.ts` — ochrana administrace a API
-- `keystatic.config.ts` — formulář novinek
+- `keystatic.config.ts` — formuláře novinek a dokumentů
+- `src/content/dokumenty/` — počáteční dokumenty a jejich zdroje
 - `src/content/novinky/` — pouze počáteční ukázky, nikoli živé serverové články
 - `data/` — výchozí lokální úložiště obsahu, ignorované Gitem
 - `Dockerfile`, `compose.yaml`, `deploy/Caddyfile` — produkční aplikace a HTTPS
