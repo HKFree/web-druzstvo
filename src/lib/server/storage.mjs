@@ -16,7 +16,11 @@ export const articleSchema = z.object({
 export function parseArticle(id, source) {
   const ast = Markdoc.parse(source);
   const data = articleSchema.parse(parse(ast.attributes.frontmatter ?? ''));
-  const html = sanitizeHtml(Markdoc.renderers.html(Markdoc.transform(ast)), {
+  return { id, data, html: renderContent(ast) };
+}
+
+export function renderContent(ast) {
+  return sanitizeHtml(Markdoc.renderers.html(Markdoc.transform(ast)), {
     allowedTags: [...sanitizeHtml.defaults.allowedTags, 'img'],
     allowedAttributes: {
       ...sanitizeHtml.defaults.allowedAttributes,
@@ -25,7 +29,6 @@ export function parseArticle(id, source) {
     allowedSchemes: ['https', 'http', 'mailto', 'tel'],
     allowProtocolRelative: false,
   });
-  return { id, data, html };
 }
 
 export function createContentStore(directory, seeds = {}) {

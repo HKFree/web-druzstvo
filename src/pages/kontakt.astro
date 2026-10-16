@@ -1,0 +1,18 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { contactStore } from '../lib/server/content';
+const page = await contactStore.read();
+---
+<Layout title={`${page.data.title} | hkfree.org`} description={page.data.description}>
+  <div class="wrap article-wrap">
+    <nav class="breadcrumb" aria-label="Drobečková navigace"><a href="/">Úvod</a> / Kontakty</nav>
+    <article>
+      <header class="article-header">
+        <h1>{page.data.title}</h1>
+        <p class="article-lead">{page.data.description}</p>
+      </header>
+      <div class="prose"><Fragment set:html={page.html} /></div>
+      <div class="article-footer"><a class="btn btn-dark" href="/#kontakt">← Zpět na úvod</a></div>
+    </article>
+  </div>
+</Layout>

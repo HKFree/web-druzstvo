@@ -96,6 +96,13 @@ test('production OIDC authentication, authorization and live editing', { timeout
     const replay = await allowed.browser.request(allowed.callback);
     assert.equal(replay.headers.get('location'), '/auth/error');
     editor = allowed.browser;
+    assert.match(await (await anonymous(base + '/kontakt/')).text(), /Nay-Tech/);
+    const contactSource = '---\ntitle: Živé kontakty\ndescription: Upravený úvod\n---\n\n## Technická podpora\n\n[Telefon](tel:+420608101070)\n';
+    const contactUpdate = await update({ additions: [addition('content/stranky/kontakt.mdoc', contactSource)], deletions: [] });
+    assert.equal(contactUpdate.status, 200, await contactUpdate.text());
+    const contactPage = await anonymous(base + '/kontakt/');
+    assert.equal(contactPage.headers.get('cache-control'), 'no-store');
+    assert.match(await contactPage.text(), /<h1>Živé kontakty<\/h1>/);
 
     for (const [flags, tamper] of [
       [{ test_subject: 'outsider' }, false], [{ test_nonce: 'wrong' }, false],
@@ -175,6 +182,7 @@ test('production OIDC authentication, authorization and live editing', { timeout
     await stop();
     await start();
     assert.equal((await anonymous(base + '/novinky/live/')).status, 200);
+    assert.match(await (await anonymous(base + '/kontakt/')).text(), /<h1>Živé kontakty<\/h1>/);
     assert.equal((await anonymous(base + '/images/novinky/live/test.png')).status, 200);
     assert.equal(await (await anonymous(documentUrl)).text(), replacementPdf);
     assert.equal((await editor.request(base + '/api/keystatic/tree')).status, 401);

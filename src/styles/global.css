@@ -157,6 +157,7 @@ h2{font-size:clamp(30px,3.6vw,42px);font-weight:820;font-stretch:114%;letter-spa
 .contact-card .big-phone{font-size:clamp(26px,3vw,34px);font-weight:820;font-stretch:112%;letter-spacing:-.8px;text-decoration:none;display:inline-block;margin:6px 0 4px}
 .contact-card .big-phone:hover{color:var(--red)}
 .contact-card .hours{font-family:var(--mono);font-size:13px;color:var(--slate)}
+.contact-details{margin-top:24px}
 .contact-rows{margin-top:26px}
 .contact-rows .pay-row b{font-family:var(--sans);font-size:15px}
 .contact-rows .pay-row a{text-decoration:none}

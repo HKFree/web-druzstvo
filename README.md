@@ -21,6 +21,12 @@ Na webu se seznam ihned aktualizuje. Dokument má stálou adresu `/dokumenty/ide
 
 Výchozí obsah tvoří osm původních PDF z [webu družstva](https://druzstvo.hkfree.org/dokumenty/), odpovídajících původním položkám této stránky: VOP, ceník, technická specifikace, vzor smlouvy, reklamační řád, reklamační formulář, GDPR a výpověď smlouvy. Ceník/specifikace a řád/formulář jsou rozdělené na samostatné záznamy. Originály jsou v `src/content/dokumenty/files/`; jejich zdroje a kontrolní součty jsou v `src/content/dokumenty/initial.json`.
 
+### Podrobné kontakty
+
+Z kontaktního bloku na úvodu vede odkaz **Podrobné kontakty** na `/kontakt/`. V Keystaticu otevřete samostatnou položku **Podrobné kontakty** (`/keystatic/singleton/kontakt`), upravte nadpis, krátký úvod a obsah a klikněte na **Save**. Text podporuje nadpisy, seznamy a odkazy, včetně telefonů a e-mailů. Změny se projeví hned bez sestavení nebo restartu.
+
+Výchozí údaje jsou převzaté ze [současné kontaktní stránky družstva](https://druzstvo.hkfree.org/kontakt/). Jednorázově se doplní také do existující instalace; další nasazení je nepřepisuje. Živý obsah je ve volume `content` v souboru `content/stranky/kontakt.mdoc` a zálohuje se s ostatním obsahem. Stručný kontaktní blok na úvodu a patička zůstávají součástí šablony; tato položka upravuje samostatnou podrobnou stránku.
+
 ## Jednorázové nasazení správcem
 
 Potřebujete server s **Docker Compose** a **Apache2**, který pro veřejnou doménu zajišťuje HTTPS vaším vlastním certifikátem. Nemůže to být hosting určený pouze pro statické HTML; aplikace musí na serveru běžet a mít trvalé úložiště. Následující kroky provádí správce jednou, nikoli redaktor při úpravách.
@@ -139,6 +145,7 @@ npm run test:production
 - `src/middleware.ts` — ochrana administrace a API
 - `keystatic.config.ts` — formuláře novinek a dokumentů
 - `src/content/dokumenty/` — počáteční dokumenty a jejich zdroje
+- `src/content/stranky/` — počáteční obsah podrobných kontaktů
 - `src/content/novinky/` — pouze počáteční ukázky, nikoli živé serverové články
 - `data/` — výchozí lokální úložiště obsahu, ignorované Gitem
 - `Dockerfile`, `compose.yaml`, `deploy/apache2.conf` — produkční HTTP aplikace a vzor HTTPS proxy Apache2

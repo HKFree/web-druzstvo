@@ -4,10 +4,13 @@ import { articleSchema, createContentStore } from './storage.mjs';
 import { publishedNews } from '../news.mjs';
 import documentDefaults from '../../content/dokumenty/initial.json';
 import { createDocumentStore, publishedDocuments, documentSchema } from './documents.mjs';
+import contactSeed from '../../content/stranky/kontakt.mdoc?raw';
+import { createContactStore } from './contacts.mjs';
 
 const files = import.meta.glob('../../content/novinky/*.mdoc', { query: '?raw', import: 'default', eager: true });
 const seeds = Object.fromEntries(Object.entries(files).map(([path, text]) => [path.split('/').pop()!.replace(/\.mdoc$/, ''), text]));
 export const contentStore = createContentStore(getSecret('CONTENT_DIR') ?? './data', seeds);
+export const contactStore = createContactStore(contentStore.root, contactSeed);
 export async function getPublishedNews() {
   const entries: NewsEntry[] = await contentStore.all();
   return publishedNews(entries);

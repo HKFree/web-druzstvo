@@ -1,4 +1,4 @@
-import { collection, config, fields } from '@keystatic/core';
+import { collection, config, fields, singleton } from '@keystatic/core';
 import { validPdf } from './src/lib/pdf.mjs';
 
 const pdfUpload = fields.file({
@@ -21,6 +21,18 @@ const pdfField: typeof pdfUpload = {
 export default config({
   storage: { kind: 'local' },
   ui: { brand: { name: 'hkfree.org · redakce' } },
+  singletons: {
+    kontakt: singleton({
+      label: 'Podrobné kontakty',
+      path: 'content/stranky/kontakt',
+      format: { contentField: 'content' },
+      schema: {
+        title: fields.text({ label: 'Nadpis stránky', validation: { isRequired: true } }),
+        description: fields.text({ label: 'Krátký úvod', multiline: true, validation: { isRequired: true } }),
+        content: fields.markdoc({ label: 'Obsah stránky' }),
+      },
+    }),
+  },
   collections: {
     dokumenty: collection({
       label: 'Dokumenty',
