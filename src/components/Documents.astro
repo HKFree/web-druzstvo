@@ -6,6 +6,6 @@ const documents = await getPublishedDocuments();
 ---
 {documents.length ? <ul class="doclist rv" id="kontakt-docs">
   {documents.map(document => <li>
-    <a href={sitePath(documentUrl(document.id))}><span class="tag">PDF</span>{document.data.title}<span class="arrow" aria-hidden="true">→</span></a>
+    <a href={sitePath(documentUrl(document.id))} target="_blank" rel="noopener noreferrer"><span class="tag">PDF</span>{document.data.title}<span class="arrow" aria-hidden="true">→</span></a>
   </li>)}
 </ul> : <p>Dokumenty právě připravujeme.</p>}
