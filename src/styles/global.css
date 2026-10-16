@@ -215,7 +215,7 @@ section[id], div[id]{scroll-margin-top:90px}
 .skip-link{position:fixed;top:-80px;left:16px;z-index:100;background:var(--paper);padding:12px 20px}
 .skip-link:focus{top:12px}
 .news-actions{margin-top:32px}
-.article-wrap{max-width:800px;padding-top:64px;padding-bottom:80px}
+.article-wrap{max-width:1000px;padding-top:64px;padding-bottom:80px}
 .breadcrumb{color:var(--slate);font-size:14px;margin-bottom:32px}
 .article-header h1{font-size:clamp(32px,5vw,54px);overflow-wrap:anywhere;margin:16px 0 24px}
 .article-header .meta{font-family:var(--mono);font-size:13px;color:var(--slate)}
