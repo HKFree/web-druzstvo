@@ -6,8 +6,14 @@ services:
         DOMAIN: ${DOMAIN:?Nastavte DOMAIN v souboru .env}
     restart: unless-stopped
     environment:
-      ADMIN_USERNAME: ${ADMIN_USERNAME:-redakce}
-      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?Nastavte ADMIN_PASSWORD v souboru .env}
+      AUTH_MODE: oidc
+      AUTH_ORIGIN: https://${DOMAIN:?Nastavte DOMAIN v souboru .env}
+      OIDC_ISSUER: ${OIDC_ISSUER:?Nastavte OIDC_ISSUER v souboru .env}
+      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:?Nastavte OIDC_CLIENT_ID v souboru .env}
+      OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:?Nastavte OIDC_CLIENT_SECRET v souboru .env}
+      OIDC_CLIENT_AUTH_METHOD: ${OIDC_CLIENT_AUTH_METHOD:-client_secret_basic}
+      OIDC_ALLOWED_SUBJECTS: ${OIDC_ALLOWED_SUBJECTS:-}
+      OIDC_ALLOWED_EMAILS: ${OIDC_ALLOWED_EMAILS:-}
     volumes:
       - content:/app/data
 

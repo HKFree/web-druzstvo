@@ -1,5 +1,7 @@
 ---
 import Editor from '../../components/Editor';
+import { authConfig } from '../../lib/server/auth-config';
+const oauth = authConfig().mode === 'oidc';
 ---
 <!doctype html>
 <html lang="cs">
@@ -9,5 +11,10 @@ import Editor from '../../components/Editor';
     <meta name="robots" content="noindex, nofollow" />
     <title>Redakce | hkfree.org</title>
   </head>
-  <body><Editor client:only="react" /></body>
+  <body>
+    <Editor client:only="react" />
+    {oauth && <form action="/auth/logout" method="post" style="position:fixed;bottom:16px;left:16px;z-index:1000">
+      <button type="submit" style="background:#fff;color:#16181d;border:1px solid #ccc;border-radius:8px;padding:8px 12px;cursor:pointer">Odhlásit se</button>
+    </form>}
+  </body>
 </html>

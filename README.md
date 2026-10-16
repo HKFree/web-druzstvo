@@ -4,7 +4,7 @@ Web v Astro se zachovaným designem z [Pajaaaa/hkf_web](https://github.com/Pajaa
 
 ## Pro redaktora
 
-1. Otevřete `https://vase-domena.cz/keystatic` a přihlaste se jménem a heslem od správce. Přihlášení zobrazí standardní dialog prohlížeče.
+1. Otevřete `https://vase-domena.cz/keystatic` a přihlaste se účtem hkfree přes přihlašovací stránku organizace. Přístup do redakce musí mít váš účet povolený správcem. Ve vývojové verzi se místo toho zobrazí dialog pro jméno a heslo.
 2. V **Novinkách** vyberte článek, nebo tlačítkem **Add** vytvořte nový.
 3. Upravte název, adresu článku (slug), datum, rubriku, úvod a text. V editoru lze vkládat i obrázky.
 4. Zrušte **Koncept**, pokud chcete článek zveřejnit, a klikněte na **Create** nebo **Save**.
@@ -18,16 +18,43 @@ Koncepty nejsou veřejné ani přes přímou adresu článku. Budoucí datum čl
 Potřebujete server s **Docker Compose**, veřejnou doménu směřující na jeho IP a dostupné porty **80 a 443**. Nemůže to být hosting určený pouze pro statické HTML; aplikace musí na serveru běžet a mít trvalé úložiště. Následující kroky provádí správce jednou, nikoli redaktor při úpravách.
 
 1. Nahrajte projekt na server (nebo ho naklonujte) a v jeho adresáři zkopírujte `.env.example` do `.env`.
-2. V `.env` nastavte `DOMAIN` na skutečnou doménu, `ADMIN_USERNAME` a vlastní dlouhé `ADMIN_PASSWORD`. Soubor s heslem nesdílejte ani necommitujte.
+2. V `.env` nastavte skutečnou `DOMAIN` a OIDC údaje podle následující části. Soubor s tajnými údaji nesdílejte ani necommitujte.
 3. Spusťte:
 
 ```sh
 docker compose up -d --build
 ```
 
-Web poběží na `https://vase-domena.cz`, redakce na `https://vase-domena.cz/keystatic`. Caddy automaticky obstará veřejný HTTPS certifikát. Přihlášení jménem a heslem chrání jak administraci, tak její zapisovací API. Bez nastaveného hesla aplikace přístup do administrace nepovolí.
+Web poběží na `https://vase-domena.cz`, redakce na `https://vase-domena.cz/keystatic`. Caddy automaticky obstará veřejný HTTPS certifikát. OIDC přihlášení chrání administraci i její zapisovací API. Produkční server nepovoluje přihlášení vývojovým heslem; při chybě OIDC se na heslo nepřepne.
 
 Soubor `compose.yaml` spouští aplikaci a HTTPS proxy. Pokud už na serveru používáte vlastní proxy na portech 80/443, správce ji může ponechat, spustit jen službu `web` a propojit ji s existující proxy. Vestavěný Node server poslouchá v kontejneru na portu 4321.
+
+### Jednorázové nastavení OIDC přihlášení
+
+Aplikace podporuje obecné **OpenID Connect** nad OAuth 2.0, například vlastní poskytovatel hkfree, Keycloak nebo Authentik. U poskytovatele zaregistrujte důvěrného webového klienta s tokem **Authorization Code**, podporou **PKCE S256** a rozsahy `openid email profile`. Přesná povolená návratová adresa je:
+
+```text
+https://vase-domena.cz/auth/callback
+```
+
+Do `.env` vyplňte:
+
+| Proměnná | Hodnota |
+| --- | --- |
+| `DOMAIN` | Veřejná doména bez `https://`, například `druzstvo.example.cz`; musí být nastavená už při sestavení. |
+| `AUTH_ORIGIN` | `https://druzstvo.example.cz`, bez cesty; Docker Compose ji nastaví automaticky podle `DOMAIN`. |
+| `OIDC_ISSUER` | Přesný issuer poskytovatele; endpointy a klíče se načtou z OIDC discovery. Použijte issuer, nikoli celou adresu `.well-known/openid-configuration`. |
+| `OIDC_CLIENT_ID` | ID registrovaného webového klienta. |
+| `OIDC_CLIENT_SECRET` | Jeho tajný klíč, pouze na serveru. |
+| `OIDC_ALLOWED_SUBJECTS` | Povolené hodnoty `sub` uživatelů od tohoto poskytovatele, oddělené čárkou. |
+| `OIDC_ALLOWED_EMAILS` | Volitelný seznam konkrétních e-mailů, oddělených čárkou. E-mail musí poskytovatel potvrdit pomocí `email_verified: true`. |
+| `OIDC_CLIENT_AUTH_METHOD` | Výchozí `client_secret_basic`; pokud poskytovatel vyžaduje tajný klíč v těle požadavku, nastavte `client_secret_post`. |
+
+Alespoň jeden seznam povolených účtů musí být vyplněný. Samotné úspěšné přihlášení u poskytovatele neopravňuje všechny jeho uživatele k editaci webu. Preferujte stabilní identifikátory `sub`; u e-mailů poskytovatel musí vracet také informaci o ověření e-mailu.
+
+V produkci je výchozí režim `oidc` a Compose ho nastavuje výslovně. Bez správné konfigurace zůstane redakce uzavřená, veřejný web funguje dál. Přihlášení používá PKCE, `state`, `nonce` a ověřuje ID token včetně podpisu, vydavatele, příjemce a platnosti. Do prohlížeče se ukládá pouze neprůhledný identifikátor relace v `HttpOnly`, `Secure`, `SameSite=Lax` cookie, nikoli tokeny poskytovatele.
+
+Relace platí nejvýše osm hodin. V redakci je tlačítko **Odhlásit se**, které tuto relaci zruší; neodhlašuje účet z ostatních služeb hkfree. Relace jsou uložené jen v paměti jedné instance aplikace, takže po restartu je potřeba nové přihlášení. Pro více instancí by bylo nutné doplnit sdílené úložiště relací. Články a obrázky restartem dotčené nejsou.
 
 ### Kam se ukládají články a obrázky
 
@@ -55,7 +82,7 @@ npm run dev
 - Web: https://192.168.5.37:4321/
 - Redakce: https://192.168.5.37:4321/keystatic
 
-Vývojový server používá vlastní HTTPS certifikát; prohlížeč vyžaduje jeho jednorázové potvrzení. HTTPS je potřeba pro Web Crypto API editoru. Vývojová adresa je nastavena v `package.json`. Také ve vývoji je administrace chráněná údaji z `.env`.
+Vývojový server používá vlastní HTTPS certifikát; prohlížeč vyžaduje jeho jednorázové potvrzení. HTTPS je potřeba pro Web Crypto API editoru. Vývojová adresa je nastavena v `package.json`. Ve vývoji je administrace chráněná `ADMIN_USERNAME` a `ADMIN_PASSWORD` z `.env`; žádný OIDC server ani přihlašovací aplikace není potřeba. Výchozí režim se řídí tím, zda běží vývojový server, nikoli přítomností OIDC klíčů. Chcete-li OIDC otestovat i ve vývoji, nastavte `AUTH_MODE=oidc`, doplňte jeho konfiguraci a povolte u poskytovatele odpovídající HTTPS callback. `AUTH_MODE=password` je povolené jen pro `npm run dev`, sestavená produkční aplikace ho odmítne.
 
 Bez Dockeru lze aplikaci na Node hostingu spustit takto:
 
@@ -65,7 +92,7 @@ npm run build
 npm start
 ```
 
-`npm start` načte `.env`. Před sestavením nastavte `DOMAIN` na veřejný název webu bez `https://` a bez cesty; aplikace podle něj ověřuje požadavky z HTTPS proxy. Nastavte také `CONTENT_DIR` na trvalý zapisovatelný adresář mimo nasazované soubory aplikace, například `/srv/hkfree-content`. Za Node serverem nastavte HTTPS proxy a zajistěte jeho trvalý běh. Výchozí adresa Node serveru je `127.0.0.1:4321`; vlastní vývojový certifikát se v produkci nepoužívá.
+`npm start` načte `.env` a používá produkční OIDC přihlášení. Nastavte jeho údaje podle tabulky výše; vývojové heslo při tomto spuštění nefunguje. Před sestavením nastavte `DOMAIN` na veřejný název webu bez `https://` a bez cesty; aplikace podle něj ověřuje požadavky z HTTPS proxy. Nastavte také `CONTENT_DIR` na trvalý zapisovatelný adresář mimo nasazované soubory aplikace, například `/srv/hkfree-content`. Za Node serverem nastavte HTTPS proxy a zajistěte jeho trvalý běh. Výchozí adresa Node serveru je `127.0.0.1:4321`; vlastní vývojový certifikát se v produkci nepoužívá.
 
 ## Kontroly a struktura
 
@@ -77,11 +104,14 @@ npm run test:production
 ```
 
 - `src/pages/` — veřejné stránky, redakce a API
-- `src/lib/server/` — čtení obsahu a ověření přihlášení
+- `src/lib/server/` — čtení obsahu, OIDC přihlášení a vývojový fallback
+- `src/pages/auth/` — přihlášení, návrat od poskytovatele a odhlášení
 - `src/middleware.ts` — ochrana administrace a API
 - `keystatic.config.ts` — formulář novinek
 - `src/content/novinky/` — pouze počáteční ukázky, nikoli živé serverové články
 - `data/` — výchozí lokální úložiště obsahu, ignorované Gitem
 - `Dockerfile`, `compose.yaml`, `deploy/Caddyfile` — produkční aplikace a HTTPS
+
+Test `npm run test:production` používá místní testovací OIDC server s HTTPS a podepsanými tokeny (vyžaduje `openssl`); nepotřebuje skutečné hkfree přihlašovací údaje. Skutečné přihlášení hkfree je potřeba ověřit po získání issueru a klientských údajů.
 
 README popisuje jediný publikační postup: úprava a uložení v administraci. Repozitář slouží vývoji programu a jeho automatické kontroly web nenasazují.

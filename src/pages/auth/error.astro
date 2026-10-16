@@ -1,0 +1,16 @@
+---
+import Layout from '../../layouts/Layout.astro';
+const reason = Astro.url.searchParams.get('reason');
+Astro.response.status = reason === 'configuration' ? 503 : 403;
+const description = reason === 'configuration'
+  ? 'Přihlášení se nepodařilo zahájit. Obraťte se na správce webu.'
+  : reason === 'denied'
+    ? 'Přihlášený účet nemá oprávnění upravovat tento web. Obraťte se na správce.'
+    : 'Přihlašovací požadavek vypršel nebo se nepodařilo ověřit přihlášení. Zkuste se přihlásit znovu.';
+---
+<Layout title="Přihlášení se nezdařilo | hkfree.org">
+  <section><div class="wrap">
+    <div class="sec-head"><h1>Přihlášení se nezdařilo</h1><p>{description}</p></div>
+    <a class="btn btn-red" href="/auth/login">Zkusit znovu</a>
+  </div></section>
+</Layout>

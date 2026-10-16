@@ -21,6 +21,7 @@
     "@keystatic/core": "^0.6.9",
     "@markdoc/markdoc": "^0.5.10",
     "astro": "^7.4.0",
+    "openid-client": "^6.8.8",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "sanitize-html": "^2.18.1",

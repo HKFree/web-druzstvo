@@ -4,35 +4,38 @@ import { spawn } from 'node:child_process';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { randomBytes } from 'node:crypto';
 import { createServer } from 'node:net';
+import { createProvider, cookieClient } from './helpers/oidc-provider.mjs';
+import { SESSION_COOKIE, TRANSACTION_COOKIE } from '../src/lib/server/oidc.mjs';
 
-// Run against the built production server, without a checkout in its working directory.
-// No GitHub credentials, database, browser or external service is needed.
-test('production editing publishes immediately and survives an application restart', async () => {
+test('production OIDC authentication, authorization and live editing', { timeout: 60_000 }, async () => {
   const work = await mkdtemp(join(tmpdir(), 'hkfree-production-'));
   const socket = createServer();
   await new Promise(done => socket.listen(0, '127.0.0.1', done));
   const port = socket.address().port;
   await new Promise(done => socket.close(done));
-  const base = `http://127.0.0.1:${port}`;
-  const password = randomBytes(24).toString('hex');
+  const base = `https://127.0.0.1:${port}`;
+  const provider = await createProvider(work);
+  const anonymous = provider.fetchLocal;
   const entrypoint = resolve('dist/server/entry.mjs');
-  const authorization = 'Basic ' + Buffer.from(`test:${password}`).toString('base64');
   let server;
   let logs = '';
-  async function start(withPassword = true) {
+  async function start(overrides = {}) {
     server = spawn(process.execPath, [entrypoint], {
       cwd: work,
       env: { ...process.env, NODE_ENV: 'production', HOST: '127.0.0.1', PORT: String(port),
-        CONTENT_DIR: join(work, 'content'), ADMIN_USERNAME: 'test', ADMIN_PASSWORD: withPassword ? password : '' },
+        CONTENT_DIR: join(work, 'content'), ADMIN_USERNAME: 'test', ADMIN_PASSWORD: 'must-never-work-in-production',
+        NODE_EXTRA_CA_CERTS: provider.certPath, SERVER_CERT_PATH: provider.certPath, SERVER_KEY_PATH: provider.keyPath,
+        AUTH_MODE: 'oidc', AUTH_ORIGIN: base, OIDC_ISSUER: provider.issuer, OIDC_CLIENT_ID: 'test-web',
+        OIDC_CLIENT_SECRET: 'test-secret', OIDC_ALLOWED_SUBJECTS: 'editor-1', OIDC_ALLOWED_EMAILS: '',
+        ...overrides },
       stdio: ['ignore', 'pipe', 'pipe'],
     });
     server.stdout.on('data', chunk => { logs += chunk; });
     server.stderr.on('data', chunk => { logs += chunk; });
     for (let attempt = 0; attempt < 100; attempt++) {
       if (server.exitCode !== null) throw new Error(logs);
-      try { if ((await fetch(base)).ok) return; } catch {}
+      try { if ((await anonymous(base)).ok) return; } catch {}
       await new Promise(done => setTimeout(done, 50));
     }
     throw new Error(`Server did not start: ${logs}`);
@@ -43,45 +46,119 @@ test('production editing publishes immediately and survives an application resta
       await new Promise(done => server.once('exit', done));
     }
   }
+  async function login(flags = {}, tamperState = false) {
+    const browser = cookieClient(provider.fetchLocal);
+    const start = await browser.request(base + '/auth/login?returnTo=/keystatic/collection/novinky');
+    assert.equal(start.status, 302);
+    const transactionCookie = start.headers.getSetCookie().find(value => value.startsWith(TRANSACTION_COOKIE + '='));
+    assert.match(transactionCookie, /Secure/);
+    assert.match(transactionCookie, /HttpOnly/);
+    assert.match(transactionCookie, /SameSite=Lax/i);
+    const authorize = new URL(start.headers.get('location'));
+    assert.equal(authorize.origin, provider.issuer);
+    assert.equal(authorize.searchParams.get('code_challenge_method'), 'S256');
+    assert.ok(authorize.searchParams.get('nonce'));
+    for (const [key, value] of Object.entries(flags)) authorize.searchParams.set(key, value);
+    const issued = await browser.request(authorize);
+    assert.equal(issued.status, 302);
+    const callback = new URL(issued.headers.get('location'));
+    if (tamperState) callback.searchParams.set('state', 'wrong-state');
+    const response = await browser.request(callback);
+    return { browser, response, callback };
+  }
   const source = draft => `---\ntitle: Živá novinka\npublishedAt: 2026-01-01\ncategory: sit\nexcerpt: Úprava bez sestavení\ndraft: ${draft}\n---\n\nText novinky.\n\n![Test](/images/novinky/live/test.png)\n`;
   const addition = (path, contents) => ({ path, contents: Buffer.from(contents).toString('base64url') });
-  const update = (data, origin = base) => fetch(base + '/api/keystatic/update', {
-    method: 'POST', headers: { authorization, origin, 'content-type': 'application/json', 'no-cors': '1' },
-    body: JSON.stringify(data),
+  let editor;
+  const update = (data, origin = base) => editor.request(base + '/api/keystatic/update', {
+    method: 'POST', headers: { origin, 'content-type': 'application/json', 'no-cors': '1' }, body: JSON.stringify(data),
   });
   try {
     await start();
-    for (const path of ['/keystatic', '/api/keystatic/tree', '/api/%6beystatic/tree', '/%6beystatic/collection/novinky']) {
-      assert.equal((await fetch(base + path)).status, 401, path);
+    for (const path of ['/keystatic', '/%6beystatic/collection/novinky']) {
+      const response = await anonymous(base + path);
+      assert.equal(response.status, 302);
+      assert.ok(response.headers.get('location').startsWith('/auth/login?'));
     }
+    for (const path of ['/api/keystatic/tree', '/api/%6beystatic/tree', '/api%2Fkeystatic/tree']) {
+      assert.equal((await anonymous(base + path)).status, 401, path);
+    }
+    const basic = 'Basic ' + Buffer.from('test:must-never-work-in-production').toString('base64');
+    assert.equal((await anonymous(base + '/api/keystatic/tree', { headers: { authorization: basic } })).status, 401);
+    const allowed = await login();
+    assert.equal(allowed.response.status, 302);
+    assert.equal(allowed.response.headers.get('location'), '/keystatic/collection/novinky', logs);
+    assert.ok(allowed.browser.cookies.get(SESSION_COOKIE));
+    assert.equal(allowed.browser.cookies.has(TRANSACTION_COOKIE), false);
+    const editorPage = await allowed.browser.request(base + '/keystatic');
+    assert.equal(editorPage.status, 200);
+    assert.equal(editorPage.headers.get('referrer-policy'), 'same-origin');
+    assert.equal(allowed.response.headers.get('referrer-policy'), 'no-referrer');
+    const replay = await allowed.browser.request(allowed.callback);
+    assert.equal(replay.headers.get('location'), '/auth/error');
+    editor = allowed.browser;
+
+    for (const [flags, tamper] of [
+      [{ test_subject: 'outsider' }, false], [{ test_nonce: 'wrong' }, false],
+      [{ test_signature: 'bad' }, false], [{ test_expired: 'yes' }, false], [{}, true],
+    ]) {
+      const denied = await login(flags, tamper);
+      assert.ok(denied.response.headers.get('location').startsWith('/auth/error'));
+      assert.equal(denied.browser.cookies.has(SESSION_COOKIE), false);
+      assert.equal((await denied.browser.request(base + '/api/keystatic/tree')).status, 401);
+    }
+
     const path = 'content/novinky/live.mdoc';
     let result = await update({ additions: [addition(path, source(true))], deletions: [] });
     assert.equal(result.status, 200, await result.text());
-    assert.equal((await fetch(base + '/novinky/live/')).status, 404);
-    assert.doesNotMatch(await (await fetch(base + '/novinky/')).text(), /Živá novinka/);
+    assert.equal((await anonymous(base + '/novinky/live/')).status, 404);
+    assert.doesNotMatch(await (await anonymous(base + '/novinky/')).text(), /Živá novinka/);
     result = await update({ additions: [addition(path, source(false)), addition('images/novinky/live/test.png', Buffer.from([137, 80, 78, 71]))], deletions: [] });
     assert.equal(result.status, 200, await result.text());
-    let page = await fetch(base + '/novinky/live/');
+    const page = await anonymous(base + '/novinky/live/');
     assert.equal(page.status, 200);
     assert.equal(page.headers.get('cache-control'), 'no-store');
     assert.match(await page.text(), /Úprava bez sestavení/);
-    assert.match(await (await fetch(base + '/novinky/')).text(), /Živá novinka/);
-    assert.equal((await fetch(base + '/images/novinky/live/test.png')).headers.get('content-type'), 'image/png');
+    assert.match(await (await anonymous(base + '/novinky/')).text(), /Živá novinka/);
+    assert.equal((await anonymous(base + '/images/novinky/live/test.png')).headers.get('content-type'), 'image/png');
     assert.equal((await update({ additions: [], deletions: [] }, 'https://cizi.example')).status, 403);
+    // Verify that trusted HTTPS proxy headers preserve the public origin for CSRF checks.
+    result = await editor.request(base + '/api/keystatic/update', { method: 'POST',
+      headers: { origin: 'https://localhost', 'x-forwarded-host': 'localhost', 'x-forwarded-proto': 'https',
+        'content-type': 'application/json', 'no-cors': '1' }, body: JSON.stringify({ additions: [], deletions: [] }) });
+    assert.equal(result.status, 200);
+
+    const staleToken = editor.cookies.get(SESSION_COOKIE);
+    assert.equal((await editor.request(base + '/auth/logout', { method: 'POST', headers: { origin: 'https://cizi.example' } })).status, 403);
+    assert.equal((await editor.request(base + '/auth/logout', { method: 'POST', headers: { origin: base } })).status, 303);
+    assert.equal((await editor.request(base + '/api/keystatic/tree', { headers: { cookie: `${SESSION_COOKIE}=${staleToken}` } })).status, 401);
+    editor = (await login()).browser;
     await stop();
     await start();
-    assert.equal((await fetch(base + '/novinky/live/')).status, 200);
-    assert.equal((await fetch(base + '/images/novinky/live/test.png')).status, 200);
+    assert.equal((await anonymous(base + '/novinky/live/')).status, 200);
+    assert.equal((await anonymous(base + '/images/novinky/live/test.png')).status, 200);
+    assert.equal((await editor.request(base + '/api/keystatic/tree')).status, 401);
+    editor = (await login()).browser;
     result = await update({ additions: [], deletions: [{ path }] });
     assert.equal(result.status, 200);
-    assert.equal((await fetch(base + '/novinky/live/')).status, 404);
+    assert.equal((await anonymous(base + '/novinky/live/')).status, 404);
     await stop();
-    await start(false);
-    assert.equal((await fetch(base + '/keystatic')).status, 503);
-    assert.equal((await fetch(base + '/api/keystatic/tree')).status, 503);
-    assert.equal((await fetch(base)).status, 200);
+    await start({ OIDC_CLIENT_AUTH_METHOD: 'client_secret_post' });
+    const postClient = await login();
+    assert.equal(postClient.response.headers.get('location'), '/keystatic/collection/novinky');
+    await stop();
+    await start({ AUTH_MODE: 'password' });
+    assert.equal((await anonymous(base + '/keystatic')).status, 503);
+    assert.equal((await anonymous(base + '/api/keystatic/tree')).status, 503);
+    assert.equal((await anonymous(base)).status, 200);
+    await stop();
+    await start({ AUTH_MODE: '', OIDC_CLIENT_SECRET: '' });
+    const unconfigured = await anonymous(base + '/api/keystatic/tree', { headers: { authorization: basic } });
+    assert.equal(unconfigured.status, 503);
+    assert.equal(unconfigured.headers.get('www-authenticate'), null);
+    assert.equal((await anonymous(base)).status, 200);
   } finally {
     await stop();
+    await provider.close();
     await rm(work, { recursive: true, force: true });
   }
 });
