@@ -154,7 +154,8 @@ h2{font-size:clamp(30px,3.6vw,42px);font-weight:820;font-stretch:114%;letter-spa
 .doclist .tag{font-family:var(--mono);font-size:10.5px;color:var(--red);border:1px solid color-mix(in srgb,var(--red) 35%,transparent);border-radius:5px;padding:2px 7px;letter-spacing:.06em}
 .doclist .arrow{margin-left:auto;color:var(--slate)}
 .contact-card{border:1px solid var(--line);border-radius:20px;padding:36px}
-.contact-card .big-phone{font-size:clamp(26px,3vw,34px);font-weight:820;font-stretch:112%;letter-spacing:-.8px;text-decoration:none;display:inline-block;margin:6px 0 4px}
+.contact-card .big-phone{font-size:clamp(26px,3vw,34px);font-weight:820;font-stretch:112%;letter-spacing:-.8px;text-decoration:none;display:inline-flex;align-items:center;gap:.35em;white-space:nowrap;margin:6px 0 4px}
+.contact-card .big-phone svg{width:.8em;height:.8em;flex-shrink:0;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .contact-card .big-phone:hover{color:var(--red)}
 .contact-card .hours{font-family:var(--mono);font-size:13px;color:var(--slate)}
 .contact-details{margin-top:24px}
