@@ -134,6 +134,63 @@ Po nahrání nové verze zdrojového kódu znovu spusťte `docker compose up -d 
 
 Pro kontrolu provozu použije správce `docker compose logs --tail=100 web`. Po prvním nasazení vyzkoušejte přihlášení, vytvoření článku i obrázek. Pak restartujte aplikaci a ověřte, že obsah zůstal. Docker konfigurace je připravená v repozitáři; DNS a skutečné nasazení musí správce ověřit na cílovém serveru.
 
+## Automatické nasazení z GitHubu
+
+Workflow `.github/workflows/ci.yml` po úspěšných kontrolách nasadí push na `main` přes SSH jako `deploy` do `/opt/web-druzstvo`. Pull requesty a jiné větve se nenasazují. Nasazuje se přesný otestovaný commit, nikoli aktuální obsah větve přes `git pull`. Deploye jsou serializované; starší běh CI se přeskočí, pokud už `main` ukazuje na jiný commit. Používá se GitHub environment `production`.
+
+### Příprava serveru
+
+Uživatel `deploy` musí mít přístup k repozitáři na GitHubu, k Dockeru a právo číst i měnit `/opt/web-druzstvo`, včetně `.git/` a `.env`. Na serveru jsou potřeba Bash, Git, Docker Compose, Python 3 a `flock` (balíček `util-linux`). Pokud soubory dosud patří rootovi, správce upraví vlastnictví:
+
+```sh
+sudo chown -R deploy:deploy /opt/web-druzstvo
+sudo chmod 600 /opt/web-druzstvo/.env
+```
+
+Z nového SSH přihlášení jako `deploy` ověřte `docker ps` a v adresáři projektu `git fetch origin main`. Ponechte existující `.env`, `BASE_PATH` a Compose projekt. Při přesunu projektu zachovejte původní název projektu pomocí `COMPOSE_PROJECT_NAME` v `.env`, aby zůstal připojený správný volume. Název najdete na dosavadním kontejneru příkazem `docker inspect --format '{{ index .Config.Labels "com.docker.compose.project" }}' ID_KONTEJNERU`. Nasazovací skript vyžaduje existující kontejner služby `web` a ověřuje zachování jeho volume `/app/data`.
+
+### SSH klíč pro GitHub Actions
+
+Jde o **jiný klíč než ten pro stahování z GitHubu**. Na správcově počítači vytvořte nový pár pro spojení Actions → server:
+
+```sh
+ssh-keygen -t ed25519 -f ~/.ssh/hkfree_actions_deploy -C "github-actions web-druzstvo" -N ''
+```
+
+Veřejnou část `hkfree_actions_deploy.pub` přidejte na serveru do `/home/deploy/.ssh/authorized_keys`. Adresář `.ssh` má patřit uživateli `deploy` s právy `700`, soubor `authorized_keys` s právy `600`. Soukromou část vložíte do GitHub Secrets, nikdy do repozitáře.
+
+Zaznamenejte také ověřený veřejný SSH klíč serveru. Například na správcově počítači:
+
+```sh
+ssh-keyscan -p 22 -t ed25519 server.example.cz > /tmp/hkfree-known-hosts
+ssh-keygen -lf /tmp/hkfree-known-hosts
+```
+
+Otisk porovnejte s `ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub` na serveru přes důvěryhodné připojení nebo konzoli. Obsah `/tmp/hkfree-known-hosts` pak použijte pro secret níže. Nahraďte host a port skutečnými hodnotami; pro nestandardní port musí být záznam ve tvaru `[host]:port`. Workflow host key kontroluje a při neshodě spojení odmítne.
+
+### Nastavení GitHubu a zapnutí
+
+V repozitáři vytvořte **Settings → Environments → production**. V něm nastavte:
+
+| Druh | Název | Hodnota |
+| --- | --- | --- |
+| Variable | `DEPLOY_HOST` | SSH hostname nebo IPv4 adresa serveru, bez `https://` a bez portu. Musí být dostupný z GitHub-hosted runneru. |
+| Variable | `DEPLOY_PORT` | SSH port, volitelný; výchozí `22`. |
+| Secret | `DEPLOY_SSH_KEY` | Celý soukromý klíč pro Actions → server, včetně řádků BEGIN/END. |
+| Secret | `DEPLOY_KNOWN_HOSTS` | Ověřený záznam SSH klíče serveru ve formátu `known_hosts`. |
+
+Nakonec v **Settings → Secrets and variables → Actions → Variables** vytvořte **repository variable** `DEPLOY_ENABLED=true`. Tento přepínač musí být na úrovni repozitáře, protože se vyhodnocuje před vstupem do environmentu. Bez něj CI dál kontroluje projekt a deployment přeskakuje. Pro vypnutí autodeploye přepněte hodnotu na `false`.
+
+Po nahrání této konfigurace a zapnutí přepínače další push na `main` spustí celý postup. První deploy sledujte v Actions a ověřte také veřejnou HTTPS stránku přes Apache. Skript se do serveru předává přes SSH ze stejného commitu, takže ho není potřeba ručně instalovat. Serverový `.env` ani OIDC údaje se do GitHubu neposílají.
+
+### Průběh a případné selhání
+
+Skript `deploy/deploy.sh` odmítne lokální změny v serverovém repozitáři a změnu volume s obsahem. Používá zámek, stáhne `main`, přepne checkout na otestované SHA a sestaví nový image za běhu dosavadního kontejneru. Až po úspěšném buildu kontejner vymění; přepnutí může způsobit krátký výpadek. Poté ověří HTTP 200 a HTML z aplikace uvnitř kontejneru, se správným `BASE_PATH`. Tato kontrola neověřuje Apache ani veřejný certifikát.
+
+Při chybě před aktivací obnoví předchozí checkout. Při chybě spuštění nebo následné HTTP kontroly workflow skončí chybou; automatický rollback kontejneru se neprovádí. Zkontrolujte `docker compose ps` a `docker compose logs --tail=100 web`. Pro návrat na známou funkční verzi lze ručně použít `git checkout --detach ZNAME_FUNKCNI_SHA` a `docker compose up -d --build`; obsah volume zůstává zachovaný.
+
+Po úspěšném nasazení zůstává serverový checkout v režimu detached HEAD. Pro ruční aktualizaci použijte `git fetch origin main`, `git checkout --detach origin/main` a sestavení. Na serveru neupravujte sledované soubory; obsah spravujte přes redakci a konfiguraci přes ignorovaný `.env`.
+
 ## Lokální vývoj / spuštění bez Dockeru
 
 Pro úpravy programu potřebujete Node.js **24** a npm. Zkopírujte `.env.example` do `.env` a nastavte přihlašovací údaje. Pro vývoj:
@@ -178,9 +235,10 @@ npm run test:production
 - `src/content/novinky/` — pouze počáteční ukázky, nikoli živé serverové články
 - `data/` — výchozí lokální úložiště obsahu, ignorované Gitem
 - `Dockerfile`, `compose.yaml`, `deploy/apache2.conf` — produkční HTTP aplikace a vzor HTTPS proxy Apache2
+- `deploy/deploy.sh`, `.github/workflows/ci.yml` — volitelný autodeploy po úspěšném CI
 
 Test `npm run test:production` používá místní testovací OIDC server s HTTPS a podepsanými tokeny (vyžaduje `openssl`); nepotřebuje skutečné hkfree přihlašovací údaje. Skutečné přihlášení hkfree je potřeba ověřit po získání issueru a klientských údajů.
 
-README popisuje jediný publikační postup: úprava a uložení v administraci. Repozitář slouží vývoji programu a jeho automatické kontroly web nenasazují.
+README popisuje jediný publikační postup: úprava a uložení v administraci. Repozitář slouží vývoji programu; jeho autodeploy nasazuje změny aplikace po úspěšných kontrolách a výslovném zapnutí `DEPLOY_ENABLED`.
 
 Logo v `public/images/hkfree-logo-druzstvo.gif` je původní oficiální soubor z [webu družstva](https://druzstvo.hkfree.org/wp-content/themes/hkfree/images/hkfree-logo-druzstvo.gif). Zobrazuje se ve správném poměru stran bez změny kresby; červené akcenty webu používají jeho barvu `#cc0000`.

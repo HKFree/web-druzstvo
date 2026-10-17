@@ -19,6 +19,7 @@ Platí pro celý repozitář. Provozní a redakční návod je v [README.md](REA
 - Docker Compose spouští jedinou HTTP službu na `127.0.0.1:${WEB_PORT:-4321}`. HTTPS řeší externí Apache2 s vlastním certifikátem; vzor je v `deploy/apache2.conf`.
 - `BASE_PATH` je prefix celého webu nastavený při buildu (výchozí `/`). Používejte `sitePath()` pro interní URL, zachovejte prefix v Apache i na backendu. Uložený obsah má cesty bez prefixu. Při úpravách routingu ověřte kořen i `/v2/`, včetně Keystaticu a OIDC.
 - `AUTH_ORIGIN` je veřejná HTTPS adresa i při interním HTTP spojení. Zachovejte předávání důvěryhodných proxy hlaviček a kontrolu původu zapisovacích požadavků.
+- Volitelný autodeploy po úspěšném CI na `main` zapíná repository variable `DEPLOY_ENABLED=true`. Nasazuje otestované SHA přes SSH jako `deploy` do `/opt/web-druzstvo`; zachovejte kontrolu původního volume, serverový `.env` a odmítnutí lokálních změn. Spojení Actions → server používá jiný klíč než server → GitHub.
 
 ## Design
 
