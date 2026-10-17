@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readAuthConfig, safeReturnTo, authorizedIdentity, createLoginStore } from '../src/lib/server/oidc.mjs';
+import { readAuthConfig, safeReturnTo, authorizedIdentity, createLoginStore, finishLogin, logins } from '../src/lib/server/oidc.mjs';
 
 const env = {
   AUTH_ORIGIN: 'https://web.example', OIDC_ISSUER: 'https://login.example/realm',
@@ -72,4 +72,25 @@ test('return paths stay inside the editor and never redirect to another site', (
   for (const value of ['https://evil.example', '//evil.example/keystatic', '/api/keystatic/update', '/keystatic-other', '/keystatic/%2e%2e', '/keystatic/../../evil', '/keystatic/\\evil', null]) {
     assert.equal(safeReturnTo(value), '/keystatic');
   }
+});
+
+test('callback failures distinguish cookie, transaction, issuer, origin and prefix without logging secrets', async () => {
+  const config = readAuthConfig(env, false, '/v2');
+  const callback = new URL(config.redirectUri + '?code=private-auth-code&state=private-state');
+  const sensitive = ['private-auth-code', 'private-state', 'private-cookie', 'private-verifier', 'private-nonce', env.OIDC_CLIENT_SECRET];
+  const reject = (token, url, reason) => assert.rejects(finishLogin(config, url, token), error => {
+    assert.ok(error.message.startsWith('[' + reason + ']'), error.message);
+    for (const value of sensitive) assert.ok(!error.message.includes(value));
+    return true;
+  });
+  await reject(undefined, callback, 'oidc_cookie_missing');
+  await reject('private-cookie', callback, 'oidc_transaction_missing');
+  const transaction = (issuer = config.issuer) => logins.transaction({ issuer, verifier: 'private-verifier', nonce: 'private-nonce' });
+  await reject(transaction('https://other.example/realm'), callback, 'oidc_issuer_mismatch');
+  const httpCallback = new URL(callback); httpCallback.protocol = 'http:';
+  const token = transaction();
+  await reject(token, httpCallback, 'oidc_origin_mismatch');
+  await reject(token, callback, 'oidc_transaction_missing'); // still single-use
+  const wrongPrefix = new URL(callback); wrongPrefix.pathname = '/auth/callback';
+  await reject(transaction(), wrongPrefix, 'oidc_path_mismatch');
 });

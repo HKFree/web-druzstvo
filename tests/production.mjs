@@ -50,7 +50,7 @@ test('production OIDC authentication, authorization and live editing', { timeout
       await new Promise(done => server.once('exit', done));
     }
   }
-  async function login(flags = {}, tamperState = false) {
+  async function login(flags = {}, tamperState = false, callbackHeaders = {}) {
     const browser = cookieClient(provider.fetchLocal);
     const start = await browser.request(base + '/auth/login?' + new URLSearchParams({ returnTo: route('/keystatic/collection/novinky') }));
     assert.equal(start.status, 302);
@@ -68,7 +68,7 @@ test('production OIDC authentication, authorization and live editing', { timeout
     assert.equal(issued.status, 302);
     const callback = new URL(issued.headers.get('location'));
     if (tamperState) callback.searchParams.set('state', 'wrong-state');
-    const response = await browser.request(callback);
+    const response = await browser.request(callback, { headers: callbackHeaders });
     return { browser, response, callback };
   }
   const source = draft => `---\ntitle: Živá novinka\npublishedAt: 2026-01-01\ncategory: sit\nexcerpt: Úprava bez sestavení\ndraft: ${draft}\n---\n\nText novinky.\n\n![Test](/images/novinky/live/test.png)\n`;
@@ -113,6 +113,12 @@ test('production OIDC authentication, authorization and live editing', { timeout
     const replay = await allowed.browser.request(allowed.callback);
     assert.equal(replay.headers.get('location'), route('/auth/error'));
     editor = allowed.browser;
+    const wrongProxyProtocol = await login({}, false, { 'x-forwarded-proto': 'http' });
+    assert.equal(wrongProxyProtocol.response.headers.get('location'), route('/auth/error'));
+    assert.equal(wrongProxyProtocol.browser.cookies.has(SESSION_COOKIE), false);
+    assert.match(logs, /\[oidc_origin_mismatch\]/);
+    assert.ok(!logs.includes(wrongProxyProtocol.callback.searchParams.get('code')));
+    assert.ok(!logs.includes(wrongProxyProtocol.callback.searchParams.get('state')));
     assert.match(await (await anonymous(base + '/kontakt/')).text(), /Nay-Tech/);
     const contactSource = '---\ntitle: Živé kontakty\ndescription: Upravený úvod\n---\n\n## Technická podpora\n\n[Telefon](tel:+420608101070)\n';
     const contactUpdate = await update({ additions: [addition('content/stranky/kontakt.mdoc', contactSource)], deletions: [] });

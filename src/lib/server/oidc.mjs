@@ -119,9 +119,23 @@ export async function beginLogin(config, returnTo) {
 }
 
 export async function finishLogin(config, url, transactionToken) {
+  if (!transactionToken) {
+    throw new Error('[oidc_cookie_missing] Prohlížeč při návratu neposlal přihlašovací cookie. Zahajte přihlášení znovu přes veřejnou HTTPS adresu.');
+  }
   const transaction = logins.consume(transactionToken);
-  if (!transaction || transaction.issuer !== config.issuer || url.origin !== config.origin || url.pathname !== new URL(config.redirectUri).pathname) {
-    throw new Error('Přihlašovací požadavek vypršel nebo není platný.');
+  if (!transaction) {
+    throw new Error('[oidc_transaction_missing] Přihlašovací požadavek nebyl nalezen nebo vypršel (platnost 5 minut). Možný restart aplikace, návrat na jinou instanci nebo opakovaný callback.');
+  }
+  if (transaction.issuer !== config.issuer) {
+    throw new Error('[oidc_issuer_mismatch] Poskytovatel OIDC se během přihlášení změnil.');
+  }
+  // Log only origin/path, never the callback query, code, state or cookie value.
+  if (url.origin !== config.origin) {
+    throw new Error(`[oidc_origin_mismatch] Aplikace vidí návrat jako ${url.origin}, AUTH_ORIGIN očekává ${config.origin}. Zkontrolujte DOMAIN při buildu a hlavičky HTTPS proxy.`);
+  }
+  const expectedPath = new URL(config.redirectUri).pathname;
+  if (url.pathname !== expectedPath) {
+    throw new Error(`[oidc_path_mismatch] Aplikace vidí cestu ${url.pathname}, očekává ${expectedPath}. Zkontrolujte BASE_PATH a zachování prefixu v proxy.`);
   }
   const configuration = await client(config);
   const tokens = await oidc.authorizationCodeGrant(configuration, url, {

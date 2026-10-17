@@ -120,6 +120,18 @@ V produkci je výchozí režim `oidc` a Compose ho nastavuje výslovně. Bez spr
 
 Relace platí nejvýše osm hodin. V redakci je tlačítko **Odhlásit se**, které tuto relaci zruší; neodhlašuje účet z ostatních služeb hkfree. Relace jsou uložené jen v paměti jedné instance aplikace, takže po restartu je potřeba nové přihlášení. Pro více instancí by bylo nutné doplnit sdílené úložiště relací. Články a obrázky restartem dotčené nejsou.
 
+### Když OIDC přihlášení selže při návratu
+
+Log `OIDC callback failed` doplňuje konkrétní důvod. Tyto kontroly předcházejí výměně autorizačního kódu za tokeny a nečtou soubory z volume; změna hostitelského uživatele na `deploy` je přímo neovlivňuje.
+
+- `[oidc_origin_mismatch]`: aplikace vidí jiný protokol, doménu nebo port než `AUTH_ORIGIN`. Za Apache musí dostávat `X-Forwarded-Proto: https`, správný `X-Forwarded-Host` a port. `DOMAIN` musí být správná už při buildu. Log uvádí skutečný a očekávaný origin.
+- `[oidc_path_mismatch]`: cesta návratu neodpovídá buildu. Při `BASE_PATH=/v2` musí být callback `/v2/auth/callback` a Apache musí prefix zachovat.
+- `[oidc_cookie_missing]`: prohlížeč neposlal `__Host-hkfree_oidc`. Začněte nový pokus na stejné veřejné HTTPS doméně; zkontrolujte blokování či přepisování cookie v prohlížeči/proxy. OIDC odpověď používá návrat přes GET s query parametry.
+- `[oidc_transaction_missing]`: cookie přišla, ale požadavek v paměti chybí nebo uplynulo pět minut. Příčinou může být restart/redeploy během přihlášení, callback na jinou instanci, opakovaný návrat nebo souběžná přihlášení. Zahajte nový pokus až po dokončení nasazení. Tato verze počítá s jednou instancí aplikace.
+- `[oidc_issuer_mismatch]`: během přihlášení se změnila konfigurace poskytovatele.
+
+Starší verze všechny tyto stavy hlásily společnou větou „Přihlašovací požadavek vypršel nebo není platný.“ Z ní samotné příčinu určit nelze. Diagnostika vypisuje pouze origin a cestu, nikoli callback query, cookie nebo tokeny. Pro řešení problému neposílejte celou callback URL s `code` a `state` ani obsah cookie.
+
 ### Kam se ukládá obsah
 
 Obsah se zapisuje přímo do trvalého Docker volume **`content`**, připojeného do aplikace jako `/app/data`. Články jsou soubory Markdoc v `content/novinky/`, obrázky v `images/novinky/`. Záznamy dokumentů jsou v `content/dokumenty/`, nahraná PDF v `files/dokumenty/`. Tyto soubory nejsou veřejně vystavené jako statický adresář; PDF se poskytují přes stálou adresu až po ověření, že je dokument zveřejněný. Web je čte za běhu, takže změny nejsou závislé na sestavení aplikace.
