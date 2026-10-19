@@ -4,6 +4,8 @@ Web v Astro se zachovaným designem z [Pajaaaa/hkf_web](https://github.com/Pajaa
 
 V sekci **Cena** lze tlačítky **Internet** a **Televize** přepnout cenovou kartu. Výchozí internet stojí 290 Kč měsíčně; televize přes internet stojí 160 Kč měsíčně a nabízí 101 TV kanálů, 7 dní TV archivu a službu bez závazků a výpovědních pokut. Karta se automaticky střídá každých 5 sekund s prolínáním trvajícím 0,8 sekundy, dokud návštěvník nevybere službu tlačítkem nebo klávesnicí. Potom zůstává u ručního přepínání. Jemné prolínání průhlednosti zůstává zapnuté i při systémovém nastavení omezeného pohybu. Tyto údaje jsou součástí šablony `src/components/PriceCard.astro`.
 
+Aktivní tlačítko služby je mírně širší. Při přepnutí se jejich poměr šířek během 0,8 sekundy plynule prohodí, i při zapnutém systémovém omezení pohybu.
+
 ## Pro redaktora
 
 1. Otevřete `https://vase-domena.cz/keystatic` a přihlaste se účtem hkfree přes přihlašovací stránku organizace. Přístup do redakce řídí váš OIDC poskytovatel; pokud správce zapne místní seznam povolených účtů, musí být váš účet také v něm. Ve vývojové verzi se místo toho zobrazí dialog pro jméno a heslo.
