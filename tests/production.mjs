@@ -150,6 +150,27 @@ test('production OIDC authentication, authorization and live editing', { timeout
     assert.match(await page.text(), /Úprava bez sestavení/);
     assert.match(await (await anonymous(base + '/novinky/')).text(), /Živá novinka/);
     assert.equal((await anonymous(base + '/images/novinky/live/test.png')).headers.get('content-type'), 'image/png');
+    const facebookUrl = 'https://www.facebook.com/hkfree/posts/123';
+    const facebookPath = 'content/novinky/facebook-test.mdoc';
+    const facebookSource = draft => source(draft).replace('Živá novinka', 'Facebook novinka').replace('\n---\n\n', `\nbody:\n  discriminant: facebook\n  value:\n    facebookUrl: ${facebookUrl}\n---\n\n`);
+    result = await update({ additions: [addition(facebookPath, facebookSource(true))], deletions: [] });
+    assert.equal(result.status, 200, await result.text());
+    assert.equal((await anonymous(base + '/novinky/facebook-test/')).status, 404);
+    assert.doesNotMatch(await (await anonymous(base + '/novinky/')).text(), /Facebook novinka/);
+    result = await update({ additions: [addition(facebookPath, facebookSource(false))], deletions: [] });
+    assert.equal(result.status, 200, await result.text());
+    for (const path of ['/', '/novinky/']) {
+      const html = await (await anonymous(base + path)).text();
+      assert.ok(html.includes(`href="${facebookUrl}"`));
+      assert.match(html, /class="facebook-icon"/);
+      assert.ok(!html.includes(`href="${route('/novinky/facebook-test/')}"`));
+    }
+    const facebookRedirect = await anonymous(base + '/novinky/facebook-test/');
+    assert.equal(facebookRedirect.status, 302);
+    assert.equal(facebookRedirect.headers.get('location'), facebookUrl);
+    result = await update({ additions: [addition(facebookPath, facebookSource(false).replace(facebookUrl, 'https://facebook.com.evil.example/'))], deletions: [] });
+    assert.equal(result.status, 400);
+    assert.equal((await anonymous(base + '/novinky/facebook-test/')).headers.get('location'), facebookUrl);
     assert.equal((await update({ additions: [], deletions: [] }, 'https://cizi.example')).status, 403);
     // Verify that trusted HTTPS proxy headers preserve the public origin for CSRF checks.
     result = await editor.request(base + '/api/keystatic/update', { method: 'POST',

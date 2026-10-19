@@ -1,6 +1,21 @@
 import { collection, config, fields, singleton } from '@keystatic/core';
 import { validPdf } from './src/lib/pdf.mjs';
 import { sitePath } from './src/lib/paths';
+import { isFacebookUrl } from './src/lib/news.mjs';
+
+const articleContent = fields.markdoc({
+  label: 'Text novinky',
+  options: { image: { directory: 'images/novinky', publicPath: '/images/novinky/' } },
+});
+const facebookLink = fields.text({ label: 'Odkaz na Facebooku', validation: { isRequired: true } });
+const facebookLinkField: typeof facebookLink = {
+  ...facebookLink,
+  validate(value, context) {
+    const link = facebookLink.validate(value, context);
+    if (!isFacebookUrl(link)) throw new Error('Zadejte platný HTTPS odkaz na Facebook (facebook.com, fb.com nebo fb.watch).');
+    return link;
+  },
+};
 
 const pdfUpload = fields.file({
   label: 'PDF dokument',
@@ -58,7 +73,8 @@ export default config({
       label: 'Novinky',
       slugField: 'title',
       path: 'content/novinky/*',
-      format: { contentField: 'content' },
+      format: { contentField: ['body', 'value', 'content'] },
+      entryLayout: 'form',
       columns: ['title', 'publishedAt', 'draft'],
       schema: {
         title: fields.slug({
@@ -77,10 +93,22 @@ export default config({
         }),
         excerpt: fields.text({ label: 'Krátký úvod', multiline: true, validation: { isRequired: true, length: { max: 300 } } }),
         draft: fields.checkbox({ label: 'Koncept (nezobrazovat na webu)', defaultValue: true }),
-        content: fields.markdoc({
-          label: 'Text novinky',
-          options: { image: { directory: 'images/novinky', publicPath: '/images/novinky/' } },
-        }),
+        body: fields.conditional(
+          fields.select({
+            label: 'Typ novinky',
+            options: [{ label: 'Lokální', value: 'local' }, { label: 'Facebook', value: 'facebook' }],
+            defaultValue: 'local',
+          }),
+          {
+            local: fields.object({ content: articleContent }),
+            facebook: fields.object({
+              facebookUrl: facebookLinkField,
+              // Keystatic requires a content field in every branch of the .mdoc format.
+              // Facebook news have no body editor; the Markdown body stays empty.
+              content: { ...articleContent, Input: () => null },
+            }),
+          },
+        ),
       },
     }),
   },

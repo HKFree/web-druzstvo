@@ -6,12 +6,16 @@ Web v Astro se zachovaným designem z [Pajaaaa/hkf_web](https://github.com/Pajaa
 
 1. Otevřete `https://vase-domena.cz/keystatic` a přihlaste se účtem hkfree přes přihlašovací stránku organizace. Přístup do redakce řídí váš OIDC poskytovatel; pokud správce zapne místní seznam povolených účtů, musí být váš účet také v něm. Ve vývojové verzi se místo toho zobrazí dialog pro jméno a heslo.
 2. V **Novinkách** vyberte článek, nebo tlačítkem **Add** vytvořte nový.
-3. Upravte název, adresu článku (slug), datum, rubriku, úvod a text. V editoru lze vkládat i obrázky.
+3. Upravte název, adresu článku (slug), datum, rubriku a krátký úvod. Zvolte **Typ novinky**: **Lokální** má editor textu včetně obrázků, **Facebook** má místo textu pouze pole **Odkaz na Facebooku**. Vložte HTTPS odkaz na příspěvek (facebook.com, fb.com nebo fb.watch).
 4. Zrušte **Koncept**, pokud chcete článek zveřejnit, a klikněte na **Create** nebo **Save**.
 
 **Hotovo. Změna je okamžitě na webu.** Redaktor nepotřebuje GitHub, Git, terminál ani spouštět sestavení. Existující odkazy zachováte tím, že po vydání neměníte slug. Smazání článku v administraci ho odstraní také z webu.
 
 Koncepty nejsou veřejné ani přes přímou adresu článku. Budoucí datum článek skryje do příslušného dne podle Europe/Prague; potom se zobrazí při dalším načtení stránky, bez sestavení. Na úvodu jsou tři nejnovější články, na `/novinky/` všechny zveřejněné.
+
+Oba typy novinek se zobrazují společně podle data vydání. U facebookových novinek je před **Číst dál** ikonka Facebooku a celá karta odkazuje přímo na zadaný příspěvek. Také přímá adresa `/novinky/slug/` přesměruje na Facebook, ale pouze u zveřejněné novinky. Nic se z Facebooku automaticky nestahuje; název a krátký úvod vyplňuje redaktor. Existující novinky bez nastaveného typu zůstávají lokální a jejich text i adresy se zachovávají. Při změně typu lokální novinky na Facebook se její původní text po uložení odstraní; před změnou si ho případně zkopírujte.
+
+Při prvním načtení po aktualizaci se do YAML hlavičky starších novinek automaticky doplní typ `local`, aby je podmíněný editor Keystaticu správně otevřel. Původní hlavička i celý text zůstávají zachované, novinky se neobnovují z výchozího obsahu. Záznamy s již nastaveným typem se nemění.
 
 ### Dokumenty
 

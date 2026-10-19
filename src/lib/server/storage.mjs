@@ -1,10 +1,11 @@
-import { mkdir, readdir, readFile, writeFile, access } from 'node:fs/promises';
+import { mkdir, readdir, readFile, writeFile, access, rename } from 'node:fs/promises';
 import { resolve, join } from 'node:path';
 import Markdoc from '@markdoc/markdoc';
 import { parse } from 'yaml';
 import sanitizeHtml from 'sanitize-html';
 import { z } from 'zod';
 import { prefixPath } from '../base-path.mjs';
+import { isFacebookUrl } from '../news.mjs';
 
 export const articleSchema = z.object({
   title: z.string().min(1),
@@ -12,12 +13,39 @@ export const articleSchema = z.object({
   category: z.enum(['sit', 'komunita', 'druzstvo']),
   excerpt: z.string().min(1).max(300),
   draft: z.boolean().default(true),
+  body: z.discriminatedUnion('discriminant', [
+    z.object({ discriminant: z.literal('local'), value: z.object({}).default({}) }),
+    z.object({ discriminant: z.literal('facebook'), value: z.object({
+      facebookUrl: z.string().refine(isFacebookUrl, 'Neplatný odkaz na Facebook.'),
+    }) }),
+  ]).default({ discriminant: 'local', value: {} }),
 });
 
 export function parseArticle(id, source, base = '') {
   const ast = Markdoc.parse(source);
   const data = articleSchema.parse(parse(ast.attributes.frontmatter ?? ''));
-  return { id, data, html: renderContent(ast, base) };
+  return { id, data, html: data.body.discriminant === 'local' ? renderContent(ast, base) : '' };
+}
+
+// Keystatic's conditional field needs explicit metadata to load the existing
+// Markdown body. Insert just that metadata, preserving all original text/fields.
+export function upgradeArticleSource(source) {
+  const frontmatter = parse(Markdoc.parse(source).attributes.frontmatter ?? '');
+  if (frontmatter && Object.hasOwn(frontmatter, 'body')) return source;
+  articleSchema.parse(frontmatter);
+  const upgraded = source.replace(/^(---\r?\n[\s\S]*?)(\r?\n---(?:\r?\n|$))/, '$1\nbody:\n  discriminant: local\n  value: {}$2');
+  if (upgraded === source) throw new Error('Novinka nemá platnou YAML hlavičku.');
+  return upgraded;
+}
+
+export function validateNewsUpdates(payload) {
+  if (!Array.isArray(payload?.additions)) return;
+  for (const addition of payload.additions) {
+    if (typeof addition.path !== 'string' || !addition.path.startsWith('content/novinky/')) continue;
+    const match = /^content\/novinky\/([a-zA-Z0-9_-]+)\.mdoc$/.exec(addition.path);
+    if (!match || typeof addition.contents !== 'string') throw new Error('Neplatná cesta novinky.');
+    parseArticle(match[1], Buffer.from(addition.contents, 'base64').toString('utf8'));
+  }
 }
 
 export function renderContent(ast, base = '') {
@@ -53,7 +81,17 @@ export function createContentStore(directory, seeds = {}, base = '') {
     await writeFile(join(root, '.initialized'), '1\n');
   }
   function ready() {
-    return initialized ??= initialize().catch(error => { initialized = undefined; throw error; });
+    return initialized ??= initialize().then(async () => {
+      const files = await readdir(join(root, 'content/novinky'));
+      for (const file of files.filter(file => /^[a-zA-Z0-9_-]+\.mdoc$/.test(file))) {
+        const path = join(root, 'content/novinky', file);
+        const source = await readFile(path, 'utf8');
+        const upgraded = upgradeArticleSource(source);
+        if (upgraded === source) continue;
+        await writeFile(`${path}.tmp`, upgraded);
+        await rename(`${path}.tmp`, path);
+      }
+    }).catch(error => { initialized = undefined; throw error; });
   }
   async function all() {
     await ready();

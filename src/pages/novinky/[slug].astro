@@ -5,6 +5,7 @@ import { categories, formatDate } from '../../lib/news.mjs';
 import { getPublishedNews } from '../../lib/server/content';
 const entry = (await getPublishedNews()).find(item => item.id === Astro.params.slug);
 if (!entry) return Astro.rewrite(sitePath('/404'));
+if (entry.data.body.discriminant === 'facebook') return Astro.redirect(entry.data.body.value.facebookUrl, 302);
 ---
 <Layout title={`${entry.data.title} | hkfree.org`} description={entry.data.excerpt}>
   <div class="wrap article-wrap">

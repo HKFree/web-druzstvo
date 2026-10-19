@@ -1,5 +1,14 @@
 export const categories = { sit: 'síť', komunita: 'komunita', druzstvo: 'družstvo' };
 
+export function isFacebookUrl(value) {
+  try {
+    const url = new URL(value);
+    return url.protocol === 'https:' && !url.username && !url.password && !url.port &&
+      (url.hostname === 'facebook.com' || url.hostname.endsWith('.facebook.com') ||
+       ['fb.watch', 'www.fb.watch', 'fb.com', 'www.fb.com'].includes(url.hostname));
+  } catch { return false; }
+}
+
 // Dates are calendar dates in Prague, independent of the build server's timezone.
 export function todayInPrague(now = new Date()) {
   return new Intl.DateTimeFormat('en-CA', {

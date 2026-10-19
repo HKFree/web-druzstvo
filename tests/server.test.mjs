@@ -1,10 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, rm, writeFile, unlink } from 'node:fs/promises';
+import { mkdtemp, rm, writeFile, readFile, unlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { validCredentials, isEditorPath } from '../src/lib/server/auth.mjs';
-import { createContentStore, parseArticle } from '../src/lib/server/storage.mjs';
+import { createContentStore, parseArticle, upgradeArticleSource, validateNewsUpdates } from '../src/lib/server/storage.mjs';
 import { publishedNews } from '../src/lib/news.mjs';
 
 const source = (title, draft = false) => `---
@@ -59,4 +59,39 @@ test('Markdoc dates, formatting and images render; unsafe HTML and links do not'
   const unsafe = parseArticle('unsafe', source('Titulek') + '\n\n[Odkaz](javascript:alert%281%29)\n\n<script>alert(1)</script>');
   assert.doesNotMatch(unsafe.html, /href="javascript:|<script/i);
   assert.throws(() => parseArticle('bad', source('Titulek').replace('2026-01-01', '2026-02-31')));
+});
+
+test('legacy news gain explicit local metadata without changing their body or other fields', async () => {
+  const original = source('Původní článek', true);
+  const upgraded = upgradeArticleSource(original);
+  assert.equal(upgraded.replace('\nbody:\n  discriminant: local\n  value: {}', ''), original);
+  assert.equal(upgradeArticleSource(upgraded), upgraded);
+  assert.deepEqual(parseArticle('test', upgraded), parseArticle('test', original));
+  const directory = await mkdtemp(join(tmpdir(), 'hkfree-news-upgrade-'));
+  try {
+    const store = createContentStore(directory, { legacy: original });
+    await store.ready();
+    assert.equal(await readFile(join(directory, 'content/novinky/legacy.mdoc'), 'utf8'), upgraded);
+    const edited = upgraded + '\n\nRedakční úprava.';
+    await writeFile(join(directory, 'content/novinky/legacy.mdoc'), edited);
+    await createContentStore(directory, { legacy: source('Jiná ukázka') }).ready();
+    assert.equal(await readFile(join(directory, 'content/novinky/legacy.mdoc'), 'utf8'), edited);
+  } finally { await rm(directory, { recursive: true, force: true }); }
+});
+
+test('Facebook news require a safe Facebook URL, have no rendered body and obey publication rules', () => {
+  const facebook = (url, draft = false) => source('Facebook novinka', draft).replace('\n---\n\n', `\nbody:\n  discriminant: facebook\n  value:\n    facebookUrl: ${JSON.stringify(url)}\n---\n\n`);
+  const article = parseArticle('facebook', facebook('https://www.facebook.com/hkfree/posts/123'));
+  assert.equal(article.data.body.discriminant, 'facebook');
+  assert.equal(article.html, '');
+  assert.equal(upgradeArticleSource(facebook('https://fb.watch/abc/')), facebook('https://fb.watch/abc/'));
+  for (const url of ['https://m.facebook.com/story.php?id=123', 'https://fb.watch/abc/', 'https://www.fb.com/hkfree']) {
+    assert.doesNotThrow(() => parseArticle('facebook', facebook(url)));
+  }
+  for (const url of ['', 'javascript:alert(1)', '//facebook.com/hkfree', 'http://facebook.com/hkfree', 'https://facebook.com.example.org/', 'https://example.org/facebook.com', 'https://facebook.com@evil.example/', 'https://user:pass@facebook.com/', 'https://facebook.com:8443/']) {
+    assert.throws(() => parseArticle('facebook', facebook(url)), url);
+    assert.throws(() => validateNewsUpdates({ additions: [{ path: 'content/novinky/facebook.mdoc', contents: Buffer.from(facebook(url)).toString('base64url') }] }), url);
+  }
+  assert.deepEqual(publishedNews([parseArticle('draft', facebook('https://facebook.com/hkfree', true))], '2026-10-19'), []);
+  assert.deepEqual(publishedNews([article], '2025-12-31'), []);
 });
