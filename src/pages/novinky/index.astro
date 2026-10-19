@@ -12,7 +12,7 @@ const news = await getPublishedNews();
         <h1>Co je nového v síti</h1>
         <p>Zprávy ze sítě, družstva a naší komunity.</p>
       </div>
-      <NewsCards entries={news} />
+      <NewsCards entries={news.slice(0, 3)} />
     </div>
   </section>
 </Layout>

@@ -11,7 +11,7 @@ Web v Astro se zachovaným designem z [Pajaaaa/hkf_web](https://github.com/Pajaa
 
 **Hotovo. Změna je okamžitě na webu.** Redaktor nepotřebuje GitHub, Git, terminál ani spouštět sestavení. Existující odkazy zachováte tím, že po vydání neměníte slug. Smazání článku v administraci ho odstraní také z webu.
 
-Koncepty nejsou veřejné ani přes přímou adresu článku. Budoucí datum článek skryje do příslušného dne podle Europe/Prague; potom se zobrazí při dalším načtení stránky, bez sestavení. Na úvodu jsou tři nejnovější články, na `/novinky/` všechny zveřejněné.
+Koncepty nejsou veřejné ani přes přímou adresu článku. Budoucí datum článek skryje do příslušného dne podle Europe/Prague; potom se zobrazí při dalším načtení stránky, bez sestavení. Na úvodu i na `/novinky/` jsou pouze tři nejnovější zveřejněné články podle data zveřejnění. Starší zveřejněné články zůstávají dostupné přes svou přímou adresu.
 
 ### Dokumenty
 
