@@ -1,0 +1,79 @@
+---
+const services = [
+  {
+    id: 'internet', label: 'Internet', title: 'cena za připojení k internetu', price: '290 Kč',
+    benefits: [
+      'bez FUP a datových limitů',
+      'bez závazků a výpovědních pokut',
+      'veřejná IP adresa a plnohodnotný přístup',
+      'podpora od lidí, kteří síť sami staví',
+      'možnost přiložit ruku k dílu',
+    ],
+  },
+  {
+    id: 'televize', label: 'Televize', title: 'cena za televizi přes internet', price: '160 Kč',
+    benefits: ['101 TV kanálů', '7 dní TV archivu', 'bez závazků a výpovědních pokut'],
+  },
+];
+---
+<div class="price-card rv" data-price-card>
+  <div class="price-panels">
+    {services.map((service, index) => (
+      <div class="price-panel" id={`price-panel-${service.id}`} role="tabpanel" aria-labelledby={`price-tab-${service.id}`} aria-hidden={index !== 0} inert={index !== 0}>
+        <div class="eyebrow">{service.title}</div>
+        <div class="price-big"><b>{service.price}</b><span>/ měsíc</span></div>
+        <ul>
+          {service.benefits.map(benefit => (
+            <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 12.5 5 5L20 6.5" /></svg>{benefit}</li>
+          ))}
+        </ul>
+      </div>
+    ))}
+  </div>
+  <div class="price-tabs" role="tablist" aria-label="Vyberte službu">
+    {services.map((service, index) => (
+      <button class="price-tab" type="button" id={`price-tab-${service.id}`} role="tab" aria-controls={`price-panel-${service.id}`} aria-selected={index === 0} tabindex={index === 0 ? 0 : -1}>{service.label}</button>
+    ))}
+  </div>
+</div>
+
+<style>
+  .price-card{display:flex;flex-direction:column}
+  .price-panels{display:grid;flex:1;min-width:0}
+  .price-panel{grid-area:1 / 1;min-width:0}
+  .price-panel[inert]{visibility:hidden}
+  .price-big{flex-wrap:wrap;row-gap:8px}
+  .price-tabs{display:flex;gap:12px;margin-top:28px}
+  .price-tab{flex:1;padding:12px 16px;border:1px solid var(--red);border-radius:10px;background:transparent;color:#fff;font:inherit;font-weight:650;cursor:pointer;transition:background .2s}
+  .price-tab[aria-selected="true"],.price-tab:hover{background:var(--red)}
+  .price-tab:focus-visible{outline:2px solid #fff;outline-offset:4px}
+</style>
+
+<script>
+  document.querySelectorAll<HTMLElement>('[data-price-card]').forEach(card => {
+    const tabs = [...card.querySelectorAll<HTMLButtonElement>('[role="tab"]')];
+    const panels = [...card.querySelectorAll<HTMLElement>('[role="tabpanel"]')];
+    const select = (index: number) => {
+      tabs.forEach((tab, position) => {
+        tab.setAttribute('aria-selected', String(position === index));
+        tab.tabIndex = position === index ? 0 : -1;
+        panels[position].inert = position !== index;
+        panels[position].setAttribute('aria-hidden', String(position !== index));
+      });
+    };
+    tabs.forEach((tab, index) => {
+      tab.addEventListener('click', () => select(index));
+      tab.addEventListener('keydown', event => {
+        let next: number;
+        if (event.key === 'ArrowRight') next = (index + 1) % tabs.length;
+        else if (event.key === 'ArrowLeft') next = (index + tabs.length - 1) % tabs.length;
+        else if (event.key === 'Home') next = 0;
+        else if (event.key === 'End') next = tabs.length - 1;
+        else return;
+        event.preventDefault();
+        select(next);
+        tabs[next].focus();
+      });
+    });
+  });
+</script>

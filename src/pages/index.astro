@@ -2,6 +2,7 @@
 import { sitePath } from '../lib/paths';
 import Layout from '../layouts/Layout.astro';
 import NewsCards from '../components/NewsCards.astro';
+import PriceCard from '../components/PriceCard.astro';
 import Documents from '../components/Documents.astro';
 import { getPublishedNews } from '../lib/server/content';
 const news = await getPublishedNews();
@@ -172,17 +173,7 @@ const news = await getPublishedNews();
       <p>Cena za připojení pokrývá provoz a rozvoj sítě. Nic víc neplatíte — žádné aktivační poplatky za službu, žádné zdražování po prvním roce.</p>
     </div>
     <div class="price-grid">
-      <div class="price-card rv">
-        <div class="eyebrow">cena za připojení k internetu</div>
-        <div class="price-big"><b>290 Kč</b><span>/ měsíc</span></div>
-        <ul>
-          <li><svg viewBox="0 0 24 24"><path d="m4 12.5 5 5L20 6.5"/></svg>bez FUP a datových limitů</li>
-          <li><svg viewBox="0 0 24 24"><path d="m4 12.5 5 5L20 6.5"/></svg>bez závazků a výpovědních pokut</li>
-          <li><svg viewBox="0 0 24 24"><path d="m4 12.5 5 5L20 6.5"/></svg>veřejná IP adresa a plnohodnotný přístup</li>
-          <li><svg viewBox="0 0 24 24"><path d="m4 12.5 5 5L20 6.5"/></svg>podpora od lidí, kteří síť sami staví</li>
-          <li><svg viewBox="0 0 24 24"><path d="m4 12.5 5 5L20 6.5"/></svg>možnost přiložit ruku k dílu</li>
-        </ul>
-      </div>
+      <PriceCard />
       <div class="pay-card rv">
         <h3>Jak platit</h3>
         <div class="pay-row"><span>Číslo účtu</span><b>107207255 / 2010</b></div>

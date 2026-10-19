@@ -2,6 +2,8 @@
 
 Web v Astro se zachovaným designem z [Pajaaaa/hkf_web](https://github.com/Pajaaaa/hkf_web). Administraci novinek a dokumentů zajišťuje Keystatic přímo na serveru.
 
+V sekci **Cena** lze tlačítky **Internet** a **Televize** přepnout cenovou kartu. Výchozí internet stojí 290 Kč měsíčně; televize přes internet stojí 160 Kč měsíčně a nabízí 101 TV kanálů, 7 dní TV archivu a službu bez závazků a výpovědních pokut. Tyto údaje jsou součástí šablony `src/components/PriceCard.astro`.
+
 ## Pro redaktora
 
 1. Otevřete `https://vase-domena.cz/keystatic` a přihlaste se účtem hkfree přes přihlašovací stránku organizace. Přístup do redakce řídí váš OIDC poskytovatel; pokud správce zapne místní seznam povolených účtů, musí být váš účet také v něm. Ve vývojové verzi se místo toho zobrazí dialog pro jméno a heslo.
