@@ -2,7 +2,7 @@
 
 Web v Astro se zachovaným designem z [Pajaaaa/hkf_web](https://github.com/Pajaaaa/hkf_web). Administraci novinek a dokumentů zajišťuje Keystatic přímo na serveru.
 
-V sekci **Cena** lze tlačítky **Internet** a **Televize** přepnout cenovou kartu. Výchozí internet stojí 290 Kč měsíčně; televize přes internet stojí 160 Kč měsíčně a nabízí 101 TV kanálů, 7 dní TV archivu a službu bez závazků a výpovědních pokut. Karta se automaticky střídá každých 5 sekund s prolínáním trvajícím 0,8 sekundy, dokud návštěvník nevybere službu tlačítkem nebo klávesnicí. Potom zůstává u ručního přepínání. Při systémovém nastavení omezeného pohybu se prolínání vypne. Tyto údaje jsou součástí šablony `src/components/PriceCard.astro`.
+V sekci **Cena** lze tlačítky **Internet** a **Televize** přepnout cenovou kartu. Výchozí internet stojí 290 Kč měsíčně; televize přes internet stojí 160 Kč měsíčně a nabízí 101 TV kanálů, 7 dní TV archivu a službu bez závazků a výpovědních pokut. Karta se automaticky střídá každých 5 sekund s prolínáním trvajícím 0,8 sekundy, dokud návštěvník nevybere službu tlačítkem nebo klávesnicí. Potom zůstává u ručního přepínání. Jemné prolínání průhlednosti zůstává zapnuté i při systémovém nastavení omezeného pohybu. Tyto údaje jsou součástí šablony `src/components/PriceCard.astro`.
 
 ## Pro redaktora
 
