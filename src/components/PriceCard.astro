@@ -40,20 +40,25 @@ const services = [
 <style>
   .price-card{display:flex;flex-direction:column}
   .price-panels{display:grid;flex:1;min-width:0}
-  .price-panel{grid-area:1 / 1;min-width:0}
-  .price-panel[inert]{visibility:hidden}
+  .price-panel{grid-area:1 / 1;min-width:0;opacity:1;visibility:visible;transition:opacity .8s ease,visibility 0s}
+  .price-panel[inert]{opacity:0;visibility:hidden;transition:opacity .8s ease,visibility 0s .8s}
   .price-big{flex-wrap:wrap;row-gap:8px}
   .price-tabs{display:flex;gap:12px;margin-top:28px}
   .price-tab{flex:1;padding:12px 16px;border:1px solid var(--red);border-radius:10px;background:transparent;color:#fff;font:inherit;font-weight:650;cursor:pointer;transition:background .2s}
   .price-tab[aria-selected="true"],.price-tab:hover{background:var(--red)}
   .price-tab:focus-visible{outline:2px solid #fff;outline-offset:4px}
+  @media(prefers-reduced-motion:reduce){
+    .price-panel,.price-panel[inert],.price-tab{transition:none}
+  }
 </style>
 
 <script>
   document.querySelectorAll<HTMLElement>('[data-price-card]').forEach(card => {
     const tabs = [...card.querySelectorAll<HTMLButtonElement>('[role="tab"]')];
     const panels = [...card.querySelectorAll<HTMLElement>('[role="tabpanel"]')];
+    let current = 0;
     const select = (index: number) => {
+      current = index;
       tabs.forEach((tab, position) => {
         tab.setAttribute('aria-selected', String(position === index));
         tab.tabIndex = position === index ? 0 : -1;
@@ -61,8 +66,15 @@ const services = [
         panels[position].setAttribute('aria-hidden', String(position !== index));
       });
     };
+    const timer = window.setInterval(() => {
+      if (!document.hidden) select((current + 1) % tabs.length);
+    }, 5000);
+    const selectManually = (index: number) => {
+      window.clearInterval(timer);
+      select(index);
+    };
     tabs.forEach((tab, index) => {
-      tab.addEventListener('click', () => select(index));
+      tab.addEventListener('click', () => selectManually(index));
       tab.addEventListener('keydown', event => {
         let next: number;
         if (event.key === 'ArrowRight') next = (index + 1) % tabs.length;
@@ -71,7 +83,7 @@ const services = [
         else if (event.key === 'End') next = tabs.length - 1;
         else return;
         event.preventDefault();
-        select(next);
+        selectManually(next);
         tabs[next].focus();
       });
     });
