@@ -25,18 +25,16 @@ export function publishedDocuments(entries) {
     .sort((a, b) => a.data.order - b.data.order || a.id.localeCompare(b.id));
 }
 
-export function createDocumentStore(directory, seeds = {}) {
+export function createDocumentStore(directory, seeds = {}, additions = []) {
   const root = resolve(directory);
   const metadata = join(root, 'content/dokumenty');
   let initialized;
   const assetPath = record => join(root, record.data.file.slice(1));
-  async function initialize() {
-    await mkdir(metadata, { recursive: true });
-    await mkdir(join(root, 'files/dokumenty'), { recursive: true });
-    // Separate migration marker also installs documents into existing news-only sites.
-    try { await access(join(root, '.documents-initialized')); return; }
+  async function installOnce(marker, ids) {
+    try { await access(join(root, marker)); return; }
     catch (error) { if (error.code !== 'ENOENT') throw error; }
-    for (const [id, seed] of Object.entries(seeds)) {
+    for (const id of ids) {
+      const seed = seeds[id];
       const record = parseDocument(id, stringify(seed.data));
       if (!validPdf(seed.bytes)) throw new Error(`Neplatný počáteční PDF soubor: ${id}`);
       try { await access(join(metadata, `${id}.yaml`)); continue; }
@@ -46,7 +44,17 @@ export function createDocumentStore(directory, seeds = {}) {
       catch (error) { if (error.code !== 'EEXIST') throw error; }
       await writeFile(join(metadata, `${id}.yaml`), stringify(seed.data), { flag: 'wx' });
     }
-    await writeFile(join(root, '.documents-initialized'), '1\n');
+    await writeFile(join(root, marker), '1\n');
+  }
+  async function initialize() {
+    await mkdir(metadata, { recursive: true });
+    await mkdir(join(root, 'files/dokumenty'), { recursive: true });
+    // Keep the original migration marker: deleted originals must never reappear.
+    await installOnce('.documents-initialized', Object.keys(seeds));
+    for (const id of additions) {
+      if (!slugPattern.test(id) || !Object.hasOwn(seeds, id)) throw new Error('Neplatný dodatečný dokument.');
+      await installOnce(`.document-${id}-initialized`, [id]);
+    }
   }
   function ready() {
     return initialized ??= initialize().catch(error => { initialized = undefined; throw error; });

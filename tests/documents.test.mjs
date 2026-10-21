@@ -58,6 +58,40 @@ test('an existing document is never overwritten during the first documents migra
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
+test('new documents are added to initialized installations once without restoring deleted originals or replacing edits', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'hkfree-document-addition-'));
+  try {
+    const seeds = { terms: { data: data('terms'), bytes: pdf } };
+    await createDocumentStore(root, seeds).ready();
+    await unlink(join(root, 'content/dokumenty/terms.yaml'));
+    seeds.guide = { data: data('guide'), bytes: pdf };
+    const updated = createDocumentStore(root, seeds, ['guide']);
+    assert.deepEqual((await updated.all()).map(entry => entry.id), ['guide']);
+    const replacement = Buffer.from('%PDF-1.7\nRedakční úprava\n%%EOF');
+    await writeFile(join(root, 'files/dokumenty/guide/file.pdf'), replacement);
+    await writeFile(join(root, 'content/dokumenty/guide.yaml'), stringify(data('guide', { title: 'Upravený návod', draft: true })));
+    const restarted = createDocumentStore(root, seeds, ['guide']);
+    assert.equal((await restarted.all())[0].data.title, 'Upravený návod');
+    assert.equal(await restarted.publishedFile('guide'), undefined);
+    assert.deepEqual(await readFile(join(root, 'files/dokumenty/guide/file.pdf')), replacement);
+    await unlink(join(root, 'content/dokumenty/guide.yaml'));
+    assert.deepEqual(await createDocumentStore(root, seeds, ['guide']).all(), []);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test('additional document migration preserves an existing record and file with the same slug', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'hkfree-document-existing-addition-'));
+  try {
+    await createDocumentStore(root).ready();
+    await mkdir(join(root, 'files/dokumenty/guide'), { recursive: true });
+    await writeFile(join(root, 'files/dokumenty/guide/file.pdf'), pdf);
+    await writeFile(join(root, 'content/dokumenty/guide.yaml'), stringify(data('guide', { title: 'Vlastní návod' })));
+    const store = createDocumentStore(root, { guide: { data: data('guide'), bytes: Buffer.from('%PDF-other') } }, ['guide']);
+    assert.equal((await store.all())[0].data.title, 'Vlastní návod');
+    assert.deepEqual((await store.publishedFile('guide')).bytes, pdf);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
 test('upload validation rejects invalid PDFs, excessive sizes, missing assets and traversal before writing', async () => {
   const root = await mkdtemp(join(tmpdir(), 'hkfree-document-upload-'));
   try {

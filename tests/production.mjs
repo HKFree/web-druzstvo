@@ -185,7 +185,7 @@ test('production OIDC authentication, authorization and live editing', { timeout
       const response = await anonymous(base + `/dokumenty/${document.id}.pdf`);
       assert.equal(response.status, 200);
       assert.equal(response.headers.get('content-type'), 'application/pdf');
-      assert.equal(createHash('sha256').update(Buffer.from(await response.arrayBuffer())).digest('hex'), document.sourceSha256);
+      assert.equal(createHash('sha256').update(Buffer.from(await response.arrayBuffer())).digest('hex'), document.fileSha256 ?? document.sourceSha256);
     }
     const documentPath = 'content/dokumenty/test-document.yaml';
     const pdfPath = 'files/dokumenty/test-document/file.pdf';

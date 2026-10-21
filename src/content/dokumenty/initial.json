@@ -70,5 +70,16 @@
     "file": "/files/dokumenty/vypoved-smlouvy/file.pdf",
     "sourceUrl": "https://druzstvo.hkfree.org/wp-content/uploads/2024/12/Vypoved_Smlouvy_V2.pdf",
     "sourceSha256": "54603afdf606549a6dbc06b1966e4d3d4ca9be1205904d20fd85e82331cdf5cf"
+  },
+  {
+    "id": "navod-na-podpis-smlouvy",
+    "title": "Návod na podpis smlouvy",
+    "order": 9,
+    "draft": false,
+    "file": "/files/dokumenty/navod-na-podpis-smlouvy/file.pdf",
+    "sourceUrl": "https://druzstvo.hkfree.org/wp-content/uploads/2024/12/navod%20na%20podpis%20smlouvy.pdf",
+    "sourceSha256": "bbbb9ddacf3e9c26294c4c0490ac2373f738e61786f175e7d4cb6eec8fac4733",
+    "fileSha256": "08e0173e19bbf7a16d567c23a60bff29700f91e4d173da45774c68fb01fae47b",
+    "processing": "Oříznuté prázdné okraje pomocí CropBox, zachován text, obrázky i odkazy; okraj 18 bodů."
   }
 ]

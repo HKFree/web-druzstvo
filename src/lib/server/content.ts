@@ -24,7 +24,7 @@ const documentSeeds = Object.fromEntries(documentDefaults.map(({ id, title, orde
   if (typeof asset !== 'string' || !asset.startsWith('data:application/pdf;base64,')) throw new Error(`Missing bundled PDF: ${id}`);
   return [id, { data: { title, order, draft, file }, bytes: Buffer.from(asset.split(',')[1], 'base64') }];
 }));
-export const documentStore = createDocumentStore(contentStore.root, documentSeeds);
+export const documentStore = createDocumentStore(contentStore.root, documentSeeds, ['navod-na-podpis-smlouvy']);
 export async function getPublishedDocuments(): Promise<DocumentEntry[]> {
   return publishedDocuments(await documentStore.all());
 }
