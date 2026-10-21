@@ -9,6 +9,7 @@ export const documentSchema = z.object({
   title: z.string().min(1).max(200),
   order: z.number().int().min(0),
   draft: z.boolean().default(true),
+  unlisted: z.boolean().default(false),
   file: z.string().regex(/^\/files\/dokumenty\/[a-zA-Z0-9_-]+\/file\.pdf$/i),
 });
 
@@ -21,7 +22,7 @@ export function parseDocument(id, source) {
 
 export const documentUrl = id => `/dokumenty/${id}.pdf`;
 export function publishedDocuments(entries) {
-  return entries.filter(entry => !entry.data.draft)
+  return entries.filter(entry => !entry.data.draft && !entry.data.unlisted)
     .sort((a, b) => a.data.order - b.data.order || a.id.localeCompare(b.id));
 }
 

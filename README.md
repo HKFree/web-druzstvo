@@ -27,6 +27,8 @@ V administraci `/admin` vyberte **Dokumenty**. U každého záznamu upravíte n�
 
 Na webu se seznam ihned aktualizuje. Dokument má stálou adresu `/dokumenty/identifikator.pdf`, například `/dokumenty/cenik.pdf`. Při výměně PDF nebo přejmenování názvu **ponechte původní slug**; veřejný odkaz pak zůstane stejný a vrátí nový soubor. Koncept ani smazaný dokument nelze stáhnout přímým veřejným odkazem. Soubor lze v redakci zkontrolovat tlačítkem **Download**.
 
+Volba **Nezobrazovat v seznamu** skryje dokument ze seznamu na webu, ale ponechá jeho přímý odkaz funkční. Pro takový dokument zrušte **Koncept**, zapněte **Nezobrazovat v seznamu** a uložte. Na PDF pak můžete odkazovat například z novinky nebo podrobných kontaktů. Tato volba není omezení přístupu: dokument může otevřít každý, kdo má jeho adresu. **Koncept** má vždy přednost a zakáže i přímé stažení. Existující dokumenty zůstávají ve výchozím stavu vylistované.
+
 Výchozí obsah tvoří osm původních PDF z [webu družstva](https://druzstvo.hkfree.org/dokumenty/): VOP, ceník, technická specifikace, vzor smlouvy, reklamační řád, reklamační formulář, GDPR a výpověď smlouvy. Doplňuje je **Návod na podpis smlouvy**, dostupný na `/dokumenty/navod-na-podpis-smlouvy.pdf`. U návodu jsou oříznuté prázdné okraje všech osmi stránek se zachováním textu, obrázků a odkazů. Ceník/specifikace a řád/formulář jsou rozdělené na samostatné záznamy. PDF jsou v `src/content/dokumenty/files/`; zdroje a kontrolní součty původních souborů jsou v `src/content/dokumenty/initial.json`. U upraveného návodu je navíc `fileSha256` pro oříznutou variantu.
 
 ### Podrobné kontakty

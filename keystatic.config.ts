@@ -66,6 +66,11 @@ export default config({
         }),
         order: fields.integer({ label: 'Pořadí na webu', description: 'Menší číslo je výše.', defaultValue: 10, validation: { isRequired: true, min: 0 } }),
         draft: fields.checkbox({ label: 'Koncept (nezobrazovat ani nepovolovat stažení)', defaultValue: true }),
+        unlisted: fields.checkbox({
+          label: 'Nezobrazovat v seznamu',
+          description: 'Zveřejněný dokument bude dostupný přes přímý odkaz, ale nebude v seznamu dokumentů na webu.',
+          defaultValue: false,
+        }),
         file: pdfField,
       },
     }),

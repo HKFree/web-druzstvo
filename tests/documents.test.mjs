@@ -13,6 +13,8 @@ const addition = (path, bytes) => ({ path, contents: Buffer.from(bytes).toString
 
 test('document metadata, order and draft filtering are validated', () => {
   assert.equal(parseDocument('test', stringify(data('test'))).data.title, 'Dokument');
+  assert.equal(parseDocument('test', stringify(data('test'))).data.unlisted, false);
+  assert.throws(() => parseDocument('test', stringify(data('test', { unlisted: 'true' }))));
   assert.throws(() => parseDocument('../test', stringify(data('test'))));
   assert.throws(() => parseDocument('test', stringify(data('other'))));
   assert.throws(() => parseDocument('test', stringify(data('test', { file: '/files/dokumenty/../../secret.pdf' }))));
@@ -20,6 +22,27 @@ test('document metadata, order and draft filtering are validated', () => {
   const entries = ['a', 'b', 'c'].map(id => ({ id, data: data(id, { order: id === 'b' ? 1 : 10, draft: id === 'c' }) }));
   assert.deepEqual(publishedDocuments(entries).map(entry => entry.id), ['b', 'a']);
   assert.deepEqual(publishedDocuments([]), []);
+});
+
+test('unlisted documents remain available by URL, update immediately and stay private when drafts', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'hkfree-unlisted-document-'));
+  try {
+    const seeds = { guide: { data: data('guide', { unlisted: true }), bytes: pdf } };
+    const store = createDocumentStore(root, seeds);
+    assert.deepEqual(publishedDocuments(await store.all()), []);
+    assert.deepEqual((await store.publishedFile('guide')).bytes, pdf);
+    await writeFile(join(root, 'content/dokumenty/guide.yaml'), stringify(data('guide', { unlisted: false })));
+    assert.equal(publishedDocuments(await store.all()).length, 1);
+    for (const unlisted of [false, true]) {
+      await writeFile(join(root, 'content/dokumenty/guide.yaml'), stringify(data('guide', { draft: true, unlisted })));
+      assert.deepEqual(publishedDocuments(await store.all()), []);
+      assert.equal(await store.publishedFile('guide'), undefined);
+    }
+    await writeFile(join(root, 'content/dokumenty/guide.yaml'), stringify(data('guide', { unlisted: true })));
+    const restarted = createDocumentStore(root, seeds);
+    assert.deepEqual(publishedDocuments(await restarted.all()), []);
+    assert.deepEqual((await restarted.publishedFile('guide')).bytes, pdf);
+  } finally { await rm(root, { recursive: true, force: true }); }
 });
 
 test('documents are installed into an existing site once, survive replacement and never reappear after deletion', async () => {

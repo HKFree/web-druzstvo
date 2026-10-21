@@ -190,7 +190,7 @@ test('production OIDC authentication, authorization and live editing', { timeout
     const documentPath = 'content/dokumenty/test-document.yaml';
     const pdfPath = 'files/dokumenty/test-document/file.pdf';
     const documentUrl = base + '/dokumenty/test-document.pdf';
-    const documentData = draft => JSON.stringify({ title: 'Spravovaný dokument', order: 0, draft, file: '/' + pdfPath });
+    const documentData = (draft, unlisted = false) => JSON.stringify({ title: 'Spravovaný dokument', order: 0, draft, unlisted, file: '/' + pdfPath });
     const originalPdf = '%PDF-1.4\nOriginal document\n%%EOF';
     result = await update({ additions: [addition(documentPath, documentData(true)), addition(pdfPath, originalPdf)], deletions: [] });
     assert.equal(result.status, 200, await result.text());
@@ -204,6 +204,16 @@ test('production OIDC authentication, authorization and live editing', { timeout
     assert.equal(await publishedPdf.text(), originalPdf);
     const home = await (await anonymous(base)).text();
     assert.ok(home.indexOf('href="' + prefix + '/dokumenty/test-document.pdf"') < home.indexOf('href="' + prefix + '/dokumenty/vseobecne-obchodni-podminky.pdf"'));
+    result = await update({ additions: [addition(documentPath, documentData(false, true))], deletions: [] });
+    assert.equal(result.status, 200, await result.text());
+    assert.ok(!(await (await anonymous(base)).text()).includes(`href="${prefix}/dokumenty/test-document.pdf"`));
+    assert.equal(await (await anonymous(documentUrl)).text(), originalPdf);
+    result = await update({ additions: [addition(documentPath, documentData(true, true))], deletions: [] });
+    assert.equal(result.status, 200, await result.text());
+    assert.equal((await anonymous(documentUrl)).status, 404);
+    result = await update({ additions: [addition(documentPath, documentData(false))], deletions: [] });
+    assert.equal(result.status, 200, await result.text());
+    assert.ok((await (await anonymous(base)).text()).includes(`href="${prefix}/dokumenty/test-document.pdf"`));
     const replacementPdf = '%PDF-1.7\nReplaced document\n%%EOF';
     result = await update({ additions: [addition(pdfPath, replacementPdf)], deletions: [] });
     assert.equal(result.status, 200, await result.text());
