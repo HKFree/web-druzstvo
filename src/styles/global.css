@@ -85,7 +85,7 @@ h1 .accent{color:var(--red);position:relative;white-space:nowrap}
 
 /* ---------- sections ---------- */
 section{padding:96px 0}
-.sec-head{max-width:640px;margin-bottom:56px}
+.sec-head{margin-bottom:56px}
 .sec-head .eyebrow{color:var(--slate)}
 h2{font-size:clamp(30px,3.6vw,42px);font-weight:820;font-stretch:114%;letter-spacing:-1px;line-height:1.08}
 .sec-head p{margin-top:16px;color:var(--slate);font-size:17.5px}
