@@ -27,6 +27,20 @@ test('production OIDC authentication, authorization and live editing', { timeout
   const containerName = `hkfree-production-test-${process.pid}-${port}`;
   let server;
   let logs = '';
+  // Docker's stdout/stderr relay can deliver diagnostics after the HTTP response.
+  // The optional delay makes that ordering reproducible without a Docker engine.
+  const logDelay = Number(process.env.TEST_LOG_DELAY_MS ?? 0);
+  const captureLog = chunk => {
+    if (logDelay > 0) setTimeout(() => { logs += chunk; }, logDelay);
+    else logs += chunk;
+  };
+  async function expectLog(pattern, from) {
+    const deadline = Date.now() + 5000;
+    while (!pattern.test(logs.slice(from)) && Date.now() < deadline) {
+      await new Promise(done => setTimeout(done, 25));
+    }
+    assert.match(logs.slice(from), pattern);
+  }
   async function start(overrides = {}) {
     const environment = { NODE_ENV: 'production', DOMAIN: 'runtime-test.example', BASE_PATH: prefix || '/', HOST: '127.0.0.1', PORT: String(port),
         CONTENT_DIR: join(work, 'content'), ADMIN_USERNAME: 'test', ADMIN_PASSWORD: 'must-never-work-in-production',
@@ -43,8 +57,8 @@ test('production OIDC authentication, authorization and live editing', { timeout
       cwd: work, env: { ...process.env, ...environment },
       stdio: ['ignore', 'pipe', 'pipe'],
     });
-    server.stdout.on('data', chunk => { logs += chunk; });
-    server.stderr.on('data', chunk => { logs += chunk; });
+    server.stdout.on('data', captureLog);
+    server.stderr.on('data', captureLog);
     for (let attempt = 0; attempt < (image ? 300 : 100); attempt++) {
       if (server.exitCode !== null) throw new Error(logs);
       try { if ((await anonymous(base)).ok) return; } catch {}
@@ -76,6 +90,7 @@ test('production OIDC authentication, authorization and live editing', { timeout
     for (const [key, value] of Object.entries(flags)) authorize.searchParams.set(key, value);
     const issued = await browser.request(authorize);
     assert.equal(issued.status, 302);
+    assert.equal(browser.cookies.has(TRANSACTION_COOKIE), true, 'The callback must send its login transaction cookie');
     const callback = new URL(issued.headers.get('location'));
     if (tamperState) callback.searchParams.set('state', 'wrong-state');
     const response = await browser.request(callback, { headers: callbackHeaders });
@@ -135,10 +150,11 @@ test('production OIDC authentication, authorization and live editing', { timeout
     const replay = await allowed.browser.request(allowed.callback);
     assert.equal(replay.headers.get('location'), route('/auth/error'));
     editor = allowed.browser;
+    const proxyLogStart = logs.length;
     const wrongProxyProtocol = await login({}, false, { 'x-forwarded-proto': 'http' });
     assert.equal(wrongProxyProtocol.response.headers.get('location'), route('/auth/error'));
     assert.equal(wrongProxyProtocol.browser.cookies.has(SESSION_COOKIE), false);
-    assert.match(logs, /\[oidc_origin_mismatch\]/);
+    await expectLog(/\[oidc_origin_mismatch\]/, proxyLogStart);
     assert.ok(!logs.includes(wrongProxyProtocol.callback.searchParams.get('code')));
     assert.ok(!logs.includes(wrongProxyProtocol.callback.searchParams.get('state')));
     assert.match(await (await anonymous(base + '/kontakt/')).text(), /Nay-Tech/);

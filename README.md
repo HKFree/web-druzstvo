@@ -286,6 +286,8 @@ npm run test:production
 TEST_BASE_PATH=/v2 npm run test:production
 ```
 
+Regresi opožděných Docker logů lze ověřit také bez Dockeru příkazem `TEST_LOG_DELAY_MS=500 TEST_BASE_PATH=/v2 npm run test:production`. Zpoždění se týká pouze příjmu logů testem; přihlášení a bezpečnostní kontroly aplikace se nemění. Stejný scénář spouští CI nad Docker obrazem.
+
 - `src/pages/` — veřejné stránky, redakce a API
 - `src/lib/server/` — čtení obsahu, OIDC přihlášení a vývojový fallback
 - `src/pages/auth/` — přihlášení, návrat od poskytovatele a odhlášení
