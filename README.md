@@ -42,12 +42,13 @@ Výchozí údaje jsou převzaté ze [současné kontaktní stránky družstva](h
 Potřebujete server s **Docker Compose** a **Apache2**, který pro veřejnou doménu zajišťuje HTTPS vaším vlastním certifikátem. Nemůže to být hosting určený pouze pro statické HTML; aplikace musí na serveru běžet a mít trvalé úložiště. Následující kroky provádí správce jednou, nikoli redaktor při úpravách.
 
 1. Nahrajte projekt na server (nebo ho naklonujte) a v jeho adresáři zkopírujte `.env.example` do `.env`.
-2. V `.env` nastavte skutečnou `DOMAIN` a OIDC údaje podle následující části. Soubor s tajnými údaji nesdílejte ani necommitujte.
+2. V `.env` nastavte skutečnou `DOMAIN`, `BASE_PATH`, `WEB_IMAGE` (digest publikovaný CI, viz migrace níže) a OIDC údaje podle následující části. Soubor s tajnými údaji nesdílejte ani necommitujte.
 3. Případně nastavte `WEB_PORT` (výchozí `4321`) na volný port serveru. Compose publikuje pouze HTTP na `127.0.0.1:4321`; porty 80/443 obsluhuje váš Apache2.
 4. Spusťte:
 
 ```sh
-docker compose up -d --build
+docker compose pull web
+docker compose up -d --no-build
 ```
 
 Po nastavení Apache2 podle následující části poběží web na `https://vase-domena.cz`, redakce na `https://vase-domena.cz/admin`. OIDC přihlášení chrání administraci i její zapisovací API. Produkční server nepovoluje přihlášení vývojovým heslem; při chybě OIDC se na heslo nepřepne.
@@ -84,7 +85,7 @@ BASE_PATH=/v2
 AUTH_ORIGIN=https://druzstvo.hkfree.org
 ```
 
-`AUTH_ORIGIN` stále obsahuje pouze protokol a doménu; Compose ji nastavuje podle `DOMAIN`. `BASE_PATH` je nastavení **při sestavení**, proto po změně spusťte `docker compose up -d --build`. Výchozí `/` znamená provoz v kořeni. Používejte cestu bez domény, například `/v2` nebo `/test/v2`.
+`AUTH_ORIGIN` stále obsahuje pouze protokol a doménu; Compose ji nastavuje podle `DOMAIN`. `DOMAIN` i `BASE_PATH` se načítají **při spuštění**. Po změně spusťte `docker compose up -d --no-build --force-recreate web`; nový obraz se nesestavuje. Výchozí `/` znamená provoz v kořeni. Používejte cestu bez domény, například `/v2` nebo `/test/v2`.
 
 Do existujícího HTTPS VirtualHostu přidejte direktivy ze souboru [`deploy/apache2-v2.conf`](deploy/apache2-v2.conf). Původní obsluhu zbytku webu ponechte. Důležité je zachovat prefix také při předávání aplikaci:
 
@@ -97,9 +98,9 @@ Prefix na backendu **neodstraňujte**. Vzor řeší i přesměrování `/v2` na 
 
 U OIDC klienta povolte přesnou návratovou adresu `https://druzstvo.hkfree.org/v2/auth/callback`. Web pak otevřete na `/v2/`, administraci na `/v2/admin`. Bez úpravy registrace callbacku přihlášení v podsložce nebude fungovat.
 
-Obsah ve volume nepřesouvejte ani neupravujte: uložené cesty k obrázkům a PDF zůstávají bez prefixu, web prefix doplňuje při vykreslování. Pro přechod do kořene nastavte `BASE_PATH=/`, obnovte konfiguraci Apache pro kořen, povolte callback `/auth/callback` a aplikaci znovu sestavte.
+Obsah ve volume nepřesouvejte ani neupravujte: uložené cesty k obrázkům a PDF zůstávají bez prefixu, web prefix doplňuje při vykreslování. Pro přechod do kořene nastavte `BASE_PATH=/`, obnovte konfiguraci Apache pro kořen, povolte callback `/auth/callback` a znovu vytvořte kontejner pomocí `docker compose up -d --no-build --force-recreate web`.
 
-Pro kontrolu obou variant lze spustit běžný build a produkční test, potom `BASE_PATH=/v2 npm run build` a `TEST_BASE_PATH=/v2 npm run test:production`. Prefix je potřeba ověřit také v prohlížeči: navigaci, načtení redakce, uložení a nahrání souboru. Integrace `integrations/keystatic-base.mjs` přizpůsobuje pevné adresy Keystaticu; při aktualizaci této knihovny zachovejte tuto kontrolu.
+Pro kontrolu obou variant sestavte projekt jen jednou pomocí `npm run build`, potom spusťte `npm run test:production` a `TEST_BASE_PATH=/v2 npm run test:production` nad stejnou šablonou. Prefix je potřeba ověřit také v prohlížeči: navigaci, načtení redakce, uložení a nahrání souboru. Integrace `integrations/keystatic-base.mjs` přizpůsobuje pevné adresy Keystaticu; při aktualizaci této knihovny zachovejte tuto kontrolu.
 
 ### Jednorázové nastavení OIDC přihlášení
 
@@ -113,8 +114,8 @@ Do `.env` vyplňte:
 
 | Proměnná | Hodnota |
 | --- | --- |
-| `DOMAIN` | Veřejná doména bez `https://`, například `druzstvo.example.cz`; musí být nastavená už při sestavení. |
-| `BASE_PATH` | Volitelný prefix jako `/v2`; výchozí `/`. Musí být nastavený při sestavení. |
+| `DOMAIN` | Veřejná doména bez `https://`, například `druzstvo.example.cz`; načítá se při spuštění aplikace. |
+| `BASE_PATH` | Volitelný prefix jako `/v2`; výchozí `/`. Načítá se při spuštění aplikace. |
 | `AUTH_ORIGIN` | `https://druzstvo.example.cz`, bez cesty; Docker Compose ji nastaví automaticky podle `DOMAIN`. |
 | `OIDC_ISSUER` | Přesný issuer poskytovatele; endpointy a klíče se načtou z OIDC discovery. Použijte issuer, nikoli celou adresu `.well-known/openid-configuration`. |
 | `OIDC_CLIENT_ID` | ID registrovaného webového klienta. |
@@ -134,8 +135,8 @@ Relace platí nejvýše osm hodin. V redakci je tlačítko **Odhlásit se**, kte
 
 Log `OIDC callback failed` doplňuje konkrétní důvod. Tyto kontroly předcházejí výměně autorizačního kódu za tokeny a nečtou soubory z volume; změna hostitelského uživatele na `deploy` je přímo neovlivňuje.
 
-- `[oidc_origin_mismatch]`: aplikace vidí jiný protokol, doménu nebo port než `AUTH_ORIGIN`. Za Apache musí dostávat `X-Forwarded-Proto: https`, správný `X-Forwarded-Host` a port. `DOMAIN` musí být správná už při buildu. Log uvádí skutečný a očekávaný origin.
-- `[oidc_path_mismatch]`: cesta návratu neodpovídá buildu. Při `BASE_PATH=/v2` musí být callback `/v2/auth/callback` a Apache musí prefix zachovat.
+- `[oidc_origin_mismatch]`: aplikace vidí jiný protokol, doménu nebo port než `AUTH_ORIGIN`. Za Apache musí dostávat `X-Forwarded-Proto: https`, správný `X-Forwarded-Host` a port. `DOMAIN` musí odpovídat veřejné doméně při spuštění. Log uvádí skutečný a očekávaný origin.
+- `[oidc_path_mismatch]`: cesta návratu neodpovídá konfiguraci při spuštění. Při `BASE_PATH=/v2` musí být callback `/v2/auth/callback` a Apache musí prefix zachovat.
 - `[oidc_cookie_missing]`: prohlížeč neposlal `__Host-hkfree_oidc`. Začněte nový pokus na stejné veřejné HTTPS doméně; zkontrolujte blokování či přepisování cookie v prohlížeči/proxy. OIDC odpověď používá návrat přes GET s query parametry.
 - `[oidc_transaction_missing]`: cookie přišla, ale požadavek v paměti chybí nebo uplynulo pět minut. Příčinou může být restart/redeploy během přihlášení, callback na jinou instanci, opakovaný návrat nebo souběžná přihlášení. Zahajte nový pokus až po dokončení nasazení. Tato verze počítá s jednou instancí aplikace.
 - `[oidc_issuer_mismatch]`: během přihlášení se změnila konfigurace poskytovatele.
@@ -152,13 +153,13 @@ Při úplně prvním spuštění se zkopírují tři ukázkové články z návr
 
 ### Aktualizace aplikace
 
-Po nahrání nové verze zdrojového kódu znovu spusťte `docker compose up -d --build`. Trvalý volume s články a obrázky zůstane zachovaný. Toto je potřeba jen při změně programu/designu; **úpravy novinek ani dokumentů nevyžadují aktualizaci nebo restart**.
+Novou verzi programu nasadí CI. Při ruční aktualizaci nastavte `WEB_IMAGE` na digest příslušného úspěšného CI a spusťte `docker compose pull web` a `docker compose up -d --no-build web`. Trvalý volume s články a obrázky zůstane zachovaný. Toto je potřeba jen při změně programu/designu; **úpravy novinek ani dokumentů nevyžadují aktualizaci nebo restart**.
 
 Pro kontrolu provozu použije správce `docker compose logs --tail=100 web`. Po prvním nasazení vyzkoušejte přihlášení, vytvoření článku i obrázek. Pak restartujte aplikaci a ověřte, že obsah zůstal. Docker konfigurace je připravená v repozitáři; DNS a skutečné nasazení musí správce ověřit na cílovém serveru.
 
 ## Automatické nasazení z GitHubu
 
-Workflow `.github/workflows/ci.yml` po úspěšných kontrolách nasadí push na `main` přes SSH jako `deploy` do `/opt/web-druzstvo`. Pull requesty a jiné větve se nenasazují. Nasazuje se přesný otestovaný commit, nikoli aktuální obsah větve přes `git pull`. Deploye jsou serializované; starší běh CI se přeskočí, pokud už `main` ukazuje na jiný commit. Používá se GitHub environment `production`.
+Workflow `.github/workflows/ci.yml` po úspěšných kontrolách nasadí push na `main` přes SSH jako `deploy` do `/opt/web-druzstvo`. Pull requesty a jiné větve se nenasazují. Nasazuje se přesný otestovaný commit, nikoli aktuální obsah větve přes `git pull`. Deploye jsou serializované; starší běh CI se přeskočí, pokud už `main` ukazuje na jiný commit. Používá se GitHub environment `production`. Po testech vznikne univerzální Docker obraz v `ghcr.io/hkfree/web-druzstvo` s tagem `sha-<celé SHA>`. CI otestuje přímo tento obraz v kořeni i pod `/v2/`, potom jej publikuje a do nasazení předá nezaměnitelný digest `@sha256:…`. Publikování na `main` probíhá i při vypnutém autodeployi; pull requesty nepublikují.
 
 ### Příprava serveru
 
@@ -207,11 +208,49 @@ Po nahrání této konfigurace a zapnutí přepínače další push na `main` sp
 
 ### Průběh a případné selhání
 
-Skript `deploy/deploy.sh` odmítne lokální změny v serverovém repozitáři a změnu volume s obsahem. Používá zámek, stáhne `main`, přepne checkout na otestované SHA a sestaví nový image za běhu dosavadního kontejneru. Až po úspěšném buildu kontejner vymění; přepnutí může způsobit krátký výpadek. Poté ověří HTTP 200 a HTML z aplikace uvnitř kontejneru, se správným `BASE_PATH`. Tato kontrola neověřuje Apache ani veřejný certifikát.
+Skript `deploy/deploy.sh` odmítne lokální změny v serverovém repozitáři a změnu volume s obsahem. Používá zámek, stáhne `main`, přepne checkout na otestované SHA a stáhne přesný obraz podle digestu za běhu dosavadního kontejneru. Ověří, že obraz má OCI label s odpovídajícím SHA a že konfigurace při spuštění je platná. V serverovém `.env` atomicky aktualizuje pouze `WEB_IMAGE`; všechny ostatní bajty, komentáře a secrets zachová. Až potom kontejner vymění; přepnutí může způsobit krátký výpadek. Poté ověří HTTP 200 a HTML z aplikace uvnitř kontejneru, se správným `BASE_PATH`. Tato kontrola neověřuje Apache ani veřejný certifikát.
 
-Při chybě před aktivací obnoví předchozí checkout. Při chybě spuštění nebo následné HTTP kontroly workflow skončí chybou; automatický rollback kontejneru se neprovádí. Zkontrolujte `docker compose ps` a `docker compose logs --tail=100 web`. Pro návrat na známou funkční verzi lze ručně použít `git checkout --detach ZNAME_FUNKCNI_SHA` a `docker compose up -d --build`; obsah volume zůstává zachovaný.
+Při chybě před aktivací obnoví předchozí checkout. Při chybě spuštění nebo následné HTTP kontroly workflow skončí chybou; automatický rollback kontejneru se neprovádí. Zkontrolujte `docker compose ps` a `docker compose logs --tail=100 web`. Pro návrat nastavte v `.env` dřívější funkční `WEB_IMAGE` s digestem z Actions, použijte odpovídající `git checkout --detach ZNAME_FUNKCNI_SHA` a spusťte `docker compose pull web` a `docker compose up -d --no-build web`. Obsah volume zůstává zachovaný; jde o návrat aplikace, nikoli obnovu staršího redakčního obsahu.
 
-Po úspěšném nasazení zůstává serverový checkout v režimu detached HEAD. Pro ruční aktualizaci použijte `git fetch origin main`, `git checkout --detach origin/main` a sestavení. Na serveru neupravujte sledované soubory; obsah spravujte přes redakci a konfiguraci přes ignorovaný `.env`.
+Po úspěšném nasazení zůstává serverový checkout v režimu detached HEAD. Pro ruční aktualizaci použijte `git fetch origin main`, `git checkout --detach origin/main`, nastavte `WEB_IMAGE` z příslušného úspěšného CI a spusťte `docker compose pull web` a `docker compose up -d --no-build web`. Na serveru neupravujte sledované soubory; obsah spravujte přes redakci a konfiguraci přes ignorovaný `.env`.
+
+## Migrace existující produkce na obrazy z GitHubu
+
+1. **Před pushem této změny dočasně nastavte repository variable `DEPLOY_ENABLED=false`.** Starý web zůstane běžet a první CI může publikovat obraz bez zásahu do produkce.
+2. Pushněte změnu na `main`. V Actions musí projít joby `build` a `image`. Job `image` používá automatický `GITHUB_TOKEN` s `packages: write`; další publishing secret nepotřebuje. Organizace musí povolovat vytváření packages z Actions. V přehledu jobu najdete celý odkaz `ghcr.io/hkfree/web-druzstvo@sha256:…`.
+3. V GitHubu otevřete nově vytvořený **Package → Package settings → Change visibility → Public**. Veřejný repozitář automaticky neznamená veřejný obraz. Potom jej server stáhne bez přihlášení do GHCR. Pokud jej chcete ponechat privátní, přihlaste Docker **jako uživatel deploy** pomocí PAT classic s `read:packages` (a případnou autorizací SSO organizace); token nepatří do repozitáře ani do image. [Dokumentace GHCR](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry).
+4. Na serveru si jako `deploy` poznamenejte současné SHA, image a název volume a udělejte provozní zálohu obsahu. Ověřte `uname -m`: současná pipeline sestavuje `linux/amd64`, tedy `x86_64`. Pro ARM64 je nutné nejprve změnit runner/platformu obrazu. V `/opt/web-druzstvo` musí být čistý checkout; ponechte existující `.env` a původní Compose projekt. Nepoužívejte `docker compose down -v`.
+5. Stáhněte změnu a do `.env` **přidejte pouze `WEB_IMAGE` s publikovaným digestem**. `DOMAIN`, `BASE_PATH`, OIDC údaje, port a případný `COMPOSE_PROJECT_NAME` zachovejte podle stávající produkce. Apache zůstává stejný.
+
+```sh
+cd /opt/web-druzstvo
+git rev-parse HEAD
+docker compose ps
+docker inspect --format '{{range .Mounts}}{{if eq .Destination "/app/data"}}{{.Name}}{{end}}{{end}}' ID_STAVAJICIHO_KONTEJNERU
+git fetch origin main
+git checkout --detach SHA_USPESNEHO_CI
+# Upravte .env: WEB_IMAGE=ghcr.io/hkfree/web-druzstvo@sha256:DIGEST_Z_ACTIONS
+```
+
+První přepnutí doporučujeme spustit stejným kontrolovaným skriptem jako automatické nasazení:
+
+```sh
+bash deploy/deploy.sh SHA_USPESNEHO_CI /opt/web-druzstvo ghcr.io/hkfree/web-druzstvo@sha256:DIGEST_Z_ACTIONS
+docker compose ps
+docker compose logs --tail=100 web
+```
+
+Skript ověří připojení stejného volume ještě před výměnou kontejneru. Ověřte veřejný web přes Apache, přihlášení přes `/admin`, otevření existující novinky a stažení PDF. Následně vraťte repository variable `DEPLOY_ENABLED=true`. Další push na `main` již sestaví a otestuje obraz na GitHubu, publikuje ho a server jej pouze stáhne a spustí. Existující SSH nastavení Actions → server i server → GitHub se nemění.
+
+Před prvním ověřením nemažte původní lokálně sestavený image. Pokud bude nutné vrátit úplně první migraci, přepněte checkout na původní zaznamenané SHA a s jeho starým Compose souborem spusťte `docker compose up -d --no-build web`; využije původní lokální image a stejné volume. Nové nastavení `WEB_IMAGE` starší Compose ignoruje. U dalších verzí použijte postup návratu na předchozí digest popsaný výše.
+
+Při úplně první instalaci bez existujícího kontejneru se skript záměrně nespustí; po nastavení `.env` použijte příkazy z oddílu jednorázového nasazení.
+
+### Konfigurace univerzálního obrazu
+
+`npm run build` ignoruje lokální `DOMAIN` a `BASE_PATH` a vytváří šablonu `dist/` s interními značkami, bez produkčních secrets. Při každém startu `scripts/start.mjs` ověří hodnoty z prostředí a připraví samostatnou dočasnou kopii v `/tmp`. V ní upraví jen konfigurační značky v textových souborech (včetně routeru, adres assetů a klienta Keystaticu), propojí runtime závislosti a spustí Node adaptér. Šablona, nahrané soubory a obsah volume zůstávají nezměněné. Při ukončení procesu se dočasná kopie odstraní. Start nevyžaduje npm, síť ani kompilaci.
+
+Stejný obraz lze spustit s `BASE_PATH=/`, `/v2` nebo `/test/v2` a jinou `DOMAIN`. Změna vyžaduje znovuvytvoření kontejneru, nikoli build. Nastavte také odpovídající Apache proxy a povolený OIDC callback. Proxy hostname se ověřuje proti skutečné `DOMAIN` při spuštění; kontroly původu požadavků zůstávají aktivní.
 
 ## Lokální vývoj / spuštění bez Dockeru
 
@@ -235,7 +274,7 @@ npm run build
 npm start
 ```
 
-`npm start` načte `.env` a používá produkční OIDC přihlášení. Nastavte jeho údaje podle tabulky výše; vývojové heslo při tomto spuštění nefunguje. Před sestavením nastavte `DOMAIN` na veřejný název webu bez `https://` a bez cesty; aplikace podle něj ověřuje požadavky z HTTPS proxy. Nastavte také `CONTENT_DIR` na trvalý zapisovatelný adresář mimo nasazované soubory aplikace, například `/srv/hkfree-content`. Za Node serverem nastavte HTTPS proxy a zajistěte jeho trvalý běh. Výchozí adresa Node serveru je `127.0.0.1:4321`; vlastní vývojový certifikát se v produkci nepoužívá.
+`npm start` načte `.env` a používá produkční OIDC přihlášení. Nastavte jeho údaje podle tabulky výše; vývojové heslo při tomto spuštění nefunguje. Před spuštěním nastavte `DOMAIN` na veřejný název webu bez `https://` a bez cesty; aplikace podle něj ověřuje požadavky z HTTPS proxy. Nastavte také `CONTENT_DIR` na trvalý zapisovatelný adresář mimo nasazované soubory aplikace, například `/srv/hkfree-content`. Za Node serverem nastavte HTTPS proxy a zajistěte jeho trvalý běh. Výchozí adresa Node serveru je `127.0.0.1:4321`; vlastní vývojový certifikát se v produkci nepoužívá.
 
 ## Kontroly a struktura
 
@@ -244,6 +283,7 @@ npm run check
 npm test
 npm run build
 npm run test:production
+TEST_BASE_PATH=/v2 npm run test:production
 ```
 
 - `src/pages/` — veřejné stránky, redakce a API

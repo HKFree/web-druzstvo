@@ -131,7 +131,7 @@ export async function finishLogin(config, url, transactionToken) {
   }
   // Log only origin/path, never the callback query, code, state or cookie value.
   if (url.origin !== config.origin) {
-    throw new Error(`[oidc_origin_mismatch] Aplikace vidí návrat jako ${url.origin}, AUTH_ORIGIN očekává ${config.origin}. Zkontrolujte DOMAIN při buildu a hlavičky HTTPS proxy.`);
+    throw new Error(`[oidc_origin_mismatch] Aplikace vidí návrat jako ${url.origin}, AUTH_ORIGIN očekává ${config.origin}. Zkontrolujte DOMAIN při spuštění a hlavičky HTTPS proxy.`);
   }
   const expectedPath = new URL(config.redirectUri).pathname;
   if (url.pathname !== expectedPath) {

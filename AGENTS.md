@@ -17,9 +17,9 @@ Platí pro celý repozitář. Provozní a redakční návod je v [README.md](REA
 - Produkce používá OIDC. Při `OIDC_ALLOW_ALL_AUTHENTICATED=true` řídí oprávnění poskytovatel a každý úspěšně přihlášený uživatel je redaktor. Zachovejte ověřování tokenů a ochranu administrace i API.
 - Přihlášení heslem je pouze vývojový fallback. Produkce se na něj při chybě OIDC nesmí přepnout. Lokální `AUTH_MODE` měňte pouze podle požadavku uživatele.
 - Docker Compose spouští jedinou HTTP službu na `127.0.0.1:${WEB_PORT:-4321}`. HTTPS řeší externí Apache2 s vlastním certifikátem; vzor je v `deploy/apache2.conf`.
-- `BASE_PATH` je prefix celého webu nastavený při buildu (výchozí `/`). Používejte `sitePath()` pro interní URL, zachovejte prefix v Apache i na backendu. Uložený obsah má cesty bez prefixu. Při úpravách routingu ověřte kořen i `/v2/`, včetně Keystaticu a OIDC.
+- `DOMAIN` a `BASE_PATH` jsou produkční konfigurace při spuštění. `npm run build` vytváří univerzální šablonu; `scripts/start.mjs` připravuje oddělenou dočasnou kopii s ověřenými hodnotami. Šablonu ani živý obsah neměňte. Používejte `sitePath()` pro interní URL, zachovejte prefix v Apache i na backendu. Uložený obsah má cesty bez prefixu. Stejné sestavení ověřte v kořeni i `/v2/`, včetně Keystaticu a OIDC. `npm run dev` funguje přímo bez Dockeru a používá lokální `.env`.
 - `AUTH_ORIGIN` je veřejná HTTPS adresa i při interním HTTP spojení. Zachovejte předávání důvěryhodných proxy hlaviček a kontrolu původu zapisovacích požadavků.
-- Volitelný autodeploy po úspěšném CI na `main` zapíná repository variable `DEPLOY_ENABLED=true`. Nasazuje otestované SHA přes SSH jako `deploy` do `/opt/web-druzstvo`; zachovejte kontrolu původního volume, serverový `.env` a odmítnutí lokálních změn. Spojení Actions → server používá jiný klíč než server → GitHub.
+- CI na `main` publikuje do GHCR obraz otestovaný v kořeni i `/v2/`. Volitelný autodeploy zapíná repository variable `DEPLOY_ENABLED=true`. Nasazuje otestované SHA a digest obrazu přes SSH jako `deploy` do `/opt/web-druzstvo`; zachovejte kontrolu původního volume a odmítnutí lokálních změn. V serverovém `.env` se aktualizuje pouze `WEB_IMAGE`; ostatní bajty a secrets se zachovávají. Produkce obrazy pouze stahuje. Spojení Actions → server používá jiný klíč než server → GitHub.
 
 ## Design
 

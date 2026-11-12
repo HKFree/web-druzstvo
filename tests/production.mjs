@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { spawn } from 'node:child_process';
+import { spawn, execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -9,7 +10,7 @@ import { createProvider, cookieClient } from './helpers/oidc-provider.mjs';
 import { normalizeBasePath } from '../src/lib/base-path.mjs';
 import { SESSION_COOKIE, TRANSACTION_COOKIE } from '../src/lib/server/oidc.mjs';
 
-test('production OIDC authentication, authorization and live editing', { timeout: 60_000 }, async () => {
+test('production OIDC authentication, authorization and live editing', { timeout: process.env.TEST_IMAGE ? 180_000 : 60_000 }, async () => {
   const work = await mkdtemp(join(tmpdir(), 'hkfree-production-'));
   const socket = createServer();
   await new Promise(done => socket.listen(0, '127.0.0.1', done));
@@ -21,23 +22,30 @@ test('production OIDC authentication, authorization and live editing', { timeout
   const base = origin + prefix;
   const provider = await createProvider(work);
   const anonymous = provider.fetchLocal;
-  const entrypoint = resolve('dist/server/entry.mjs');
+  const entrypoint = resolve('scripts/start.mjs');
+  const image = process.env.TEST_IMAGE;
+  const containerName = `hkfree-production-test-${process.pid}-${port}`;
   let server;
   let logs = '';
   async function start(overrides = {}) {
-    server = spawn(process.execPath, [entrypoint], {
-      cwd: work,
-      env: { ...process.env, NODE_ENV: 'production', HOST: '127.0.0.1', PORT: String(port),
+    const environment = { NODE_ENV: 'production', DOMAIN: 'runtime-test.example', BASE_PATH: prefix || '/', HOST: '127.0.0.1', PORT: String(port),
         CONTENT_DIR: join(work, 'content'), ADMIN_USERNAME: 'test', ADMIN_PASSWORD: 'must-never-work-in-production',
         NODE_EXTRA_CA_CERTS: provider.certPath, SERVER_CERT_PATH: provider.certPath, SERVER_KEY_PATH: provider.keyPath,
         AUTH_MODE: 'oidc', AUTH_ORIGIN: origin, OIDC_ISSUER: provider.issuer, OIDC_CLIENT_ID: 'test-web',
         OIDC_CLIENT_SECRET: 'test-secret', OIDC_ALLOWED_SUBJECTS: 'editor-1', OIDC_ALLOWED_EMAILS: '', OIDC_ALLOW_ALL_AUTHENTICATED: 'false',
-        ...overrides },
+        ...overrides };
+    server = spawn(image ? 'docker' : process.execPath, image ? [
+      'run', '--rm', '--network', 'host', '--name', containerName,
+      '--user', `${process.getuid()}:${process.getgid()}`,
+      '--mount', `type=bind,source=${work},target=${work}`,
+      ...Object.entries(environment).flatMap(([key, value]) => ['--env', `${key}=${value}`]), image,
+    ] : [entrypoint], {
+      cwd: work, env: { ...process.env, ...environment },
       stdio: ['ignore', 'pipe', 'pipe'],
     });
     server.stdout.on('data', chunk => { logs += chunk; });
     server.stderr.on('data', chunk => { logs += chunk; });
-    for (let attempt = 0; attempt < 100; attempt++) {
+    for (let attempt = 0; attempt < (image ? 300 : 100); attempt++) {
       if (server.exitCode !== null) throw new Error(logs);
       try { if ((await anonymous(base)).ok) return; } catch {}
       await new Promise(done => setTimeout(done, 50));
@@ -46,8 +54,10 @@ test('production OIDC authentication, authorization and live editing', { timeout
   }
   async function stop() {
     if (server && server.exitCode === null) {
-      server.kill();
-      await new Promise(done => server.once('exit', done));
+      const exited = new Promise(done => server.once('exit', done));
+      if (image) await promisify(execFile)('docker', ['stop', '--time', '5', containerName]);
+      else server.kill();
+      await exited;
     }
   }
   async function login(flags = {}, tamperState = false, callbackHeaders = {}) {
@@ -80,6 +90,17 @@ test('production OIDC authentication, authorization and live editing', { timeout
   try {
     await start();
     const homepage = await (await anonymous(base + '/')).text();
+    const assertAssets = async html => {
+      const assets = [...html.matchAll(/(?:src|href|component-url|renderer-url)="([^"]*_astro\/[^\"]+)"/g)].map(match => match[1]);
+      assert.ok(assets.length, 'Rendered pages must contain built assets');
+      for (const asset of new Set(assets)) {
+        assert.ok(asset.startsWith(route('/_astro/')), `Asset must have an absolute deployment prefix: ${asset}`);
+        const response = await anonymous(origin + asset);
+        assert.equal(response.status, 200, asset);
+        assert.ok(!response.headers.get('content-type')?.includes('text/html'), `Asset returned HTML: ${asset}`);
+      }
+    };
+    await assertAssets(homepage);
     for (const path of ['/kontakt/', '/novinky/', '/images/hkfree-logo-druzstvo.png', '/favicon.ico']) {
       assert.ok(homepage.includes(`"${route(path)}"`), path);
     }
@@ -108,6 +129,7 @@ test('production OIDC authentication, authorization and live editing', { timeout
     assert.equal(allowed.browser.cookies.has(TRANSACTION_COOKIE), false);
     const editorPage = await allowed.browser.request(base + '/keystatic');
     assert.equal(editorPage.status, 200);
+    await assertAssets(await editorPage.text());
     assert.equal(editorPage.headers.get('referrer-policy'), 'same-origin');
     assert.equal(allowed.response.headers.get('referrer-policy'), 'no-referrer');
     const replay = await allowed.browser.request(allowed.callback);
@@ -177,6 +199,12 @@ test('production OIDC authentication, authorization and live editing', { timeout
       headers: { origin: 'https://localhost', 'x-forwarded-host': 'localhost', 'x-forwarded-proto': 'https',
         'content-type': 'application/json', 'no-cors': '1' }, body: JSON.stringify({ additions: [], deletions: [] }) });
     assert.equal(result.status, 200);
+    for (const [host, status] of [['runtime-test.example', 200], ['untrusted.example', 403]]) {
+      result = await editor.request(base + '/api/keystatic/update', { method: 'POST',
+        headers: { origin: `https://${host}`, 'x-forwarded-host': host, 'x-forwarded-proto': 'https',
+          'content-type': 'application/json', 'no-cors': '1' }, body: JSON.stringify({ additions: [], deletions: [] }) });
+      assert.equal(result.status, status, `Runtime DOMAIN/proxy validation: ${host}`);
+    }
 
     // Document PDFs use runtime storage and a stable public URL independent of their filename.
     const importedDocuments = JSON.parse(await (await import('node:fs/promises')).readFile(resolve('src/content/dokumenty/initial.json'), 'utf8'));

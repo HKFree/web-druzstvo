@@ -5,16 +5,19 @@ import node from '@astrojs/node';
 import basicSsl from '@vitejs/plugin-basic-ssl';
 import { normalizeBasePath } from './src/lib/base-path.mjs';
 import { keystaticBase } from './integrations/keystatic-base.mjs';
+import { BUILD_BASE, BUILD_DOMAIN } from './scripts/runtime-config.mjs';
 
 const env = loadEnv(process.env.NODE_ENV ?? 'development', process.cwd(), '');
-const base = normalizeBasePath(env.BASE_PATH);
+const universal = process.env.HKFREE_RUNTIME_BUILD === '1';
+const base = universal ? BUILD_BASE : normalizeBasePath(env.BASE_PATH);
+const domain = universal ? BUILD_DOMAIN : env.DOMAIN;
 
 export default defineConfig({
   base: base || '/',
   security: {
     allowedDomains: [
       { hostname: 'localhost' }, { hostname: '127.0.0.1' }, { hostname: '192.168.5.37' },
-      ...(env.DOMAIN ? [{ hostname: env.DOMAIN }] : []),
+      ...(domain ? [{ hostname: domain }] : []),
     ],
   },
   output: 'server',

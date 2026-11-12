@@ -1,14 +1,12 @@
 services:
   web:
-    build:
-      context: .
-      args:
-        DOMAIN: ${DOMAIN:?Nastavte DOMAIN v souboru .env}
-        BASE_PATH: ${BASE_PATH:-/}
+    image: ${WEB_IMAGE:?Nastavte WEB_IMAGE na publikovaný obraz v souboru .env}
     restart: unless-stopped
     ports:
       - '127.0.0.1:${WEB_PORT:-4321}:4321'
     environment:
+      DOMAIN: ${DOMAIN:?Nastavte DOMAIN v souboru .env}
+      BASE_PATH: ${BASE_PATH:-/}
       AUTH_MODE: oidc
       AUTH_ORIGIN: https://${DOMAIN:?Nastavte DOMAIN v souboru .env}
       OIDC_ISSUER: ${OIDC_ISSUER:?Nastavte OIDC_ISSUER v souboru .env}

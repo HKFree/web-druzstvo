@@ -18,10 +18,70 @@ jobs:
       - run: npm test
       - run: npm run build
       - run: npm run test:production
-      - run: BASE_PATH=/v2 npm run build
       - run: TEST_BASE_PATH=/v2 npm run test:production
-  deploy:
+  image:
     needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      reference: ${{ steps.publish.outputs.reference }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Image name
+        id: name
+        env:
+          REPOSITORY: ${{ github.repository }}
+        run: echo "image=ghcr.io/${REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+      - uses: docker/setup-buildx-action@v3
+      - name: Build universal image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true
+          platforms: linux/amd64
+          tags: ${{ steps.name.outputs.image }}:sha-${{ github.sha }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Test the actual image at root
+        env:
+          TEST_IMAGE: ${{ steps.name.outputs.image }}:sha-${{ github.sha }}
+        run: npm run test:production
+      - name: Test the same image under a prefix
+        env:
+          TEST_IMAGE: ${{ steps.name.outputs.image }}:sha-${{ github.sha }}
+          TEST_BASE_PATH: /v2
+        run: npm run test:production
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Publish tested image
+        id: publish
+        env:
+          IMAGE: ${{ steps.name.outputs.image }}
+          REVISION: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          docker push "$IMAGE:sha-$REVISION"
+          reference=$(docker image inspect --format '{{index .RepoDigests 0}}' "$IMAGE:sha-$REVISION")
+          [[ "$reference" == "$IMAGE@sha256:"* ]] || exit 1
+          echo "reference=$reference" >> "$GITHUB_OUTPUT"
+          echo "Published image: $reference" >> "$GITHUB_STEP_SUMMARY"
+  deploy:
+    needs: image
     if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.DEPLOY_ENABLED == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -36,6 +96,7 @@ jobs:
           DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
           DEPLOY_PORT: ${{ vars.DEPLOY_PORT || '22' }}
           DEPLOY_SHA: ${{ github.sha }}
+          DEPLOY_IMAGE: ${{ needs.image.outputs.reference }}
           DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
           DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
         shell: bash
@@ -45,6 +106,7 @@ jobs:
           [[ "$DEPLOY_PORT" =~ ^[0-9]{1,5}$ ]] || { echo 'Invalid DEPLOY_PORT.' >&2; exit 1; }
           (( 10#$DEPLOY_PORT >= 1 && 10#$DEPLOY_PORT <= 65535 )) || { echo 'Invalid DEPLOY_PORT.' >&2; exit 1; }
           [[ "$DEPLOY_SHA" =~ ^[0-9a-f]{40}$ ]] || exit 1
+          [[ "$DEPLOY_IMAGE" =~ ^ghcr\.io/[a-z0-9._/-]+@sha256:[0-9a-f]{64}$ ]] || exit 1
           [[ -n "$DEPLOY_SSH_KEY" && -n "$DEPLOY_KNOWN_HOSTS" ]] || { echo 'Set deployment SSH secrets.' >&2; exit 1; }
           umask 077
           key_file="$RUNNER_TEMP/hkfree-deploy-key"
@@ -56,4 +118,4 @@ jobs:
             -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
             -o UserKnownHostsFile="$hosts_file" -o ConnectTimeout=15 \
             -o ServerAliveInterval=30 -o ServerAliveCountMax=6 \
-            "deploy@$DEPLOY_HOST" "bash -s -- '$DEPLOY_SHA' '/opt/web-druzstvo'" < deploy/deploy.sh
+            "deploy@$DEPLOY_HOST" "bash -s -- '$DEPLOY_SHA' '/opt/web-druzstvo' '$DEPLOY_IMAGE'" < deploy/deploy.sh
