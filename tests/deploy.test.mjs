@@ -34,14 +34,13 @@ async function fixture(t) {
   await git(source, 'push', 'origin', 'main');
   await git(root, 'clone', remote, live);
   await git(live, 'checkout', '--detach', old);
-  await writeFile(join(live, '.env'), 'OIDC_CLIENT_SECRET=local-test-only\nBASE_PATH=/v2\nWEB_IMAGE=old-image\n');
+  await writeFile(join(live, '.env'), 'OIDC_CLIENT_SECRET=local-test-only\nBASE_PATH=/v2\nWEB_IMAGE=ghcr.io/hkfree/web-druzstvo:latest\n');
   await mkdir(join(live, 'data')); await writeFile(join(live, 'data/editor-content'), 'Keep my content');
   await writeFile(join(bin, 'docker'), `#!/usr/bin/env node
 import { appendFileSync } from 'node:fs';
 const args=process.argv.slice(2);
 appendFileSync(process.env.MOCK_DOCKER_LOG,JSON.stringify(args)+'\\n');
 if(args[0]==='inspect') console.log('web-druzstvo_content');
-else if(args[0]==='image'&&args[1]==='inspect') console.log(process.env.MOCK_IMAGE_REVISION||process.env.MOCK_REVISION);
 else if(args[0]==='compose'&&args[1]==='ps') console.log('old-container');
 else if(args[0]==='compose'&&args[1]==='config') console.log(JSON.stringify({volumes:{content:{name:process.env.MOCK_VOLUME||'web-druzstvo_content'}},services:{web:{environment:{BASE_PATH:'/v2'},image:process.env.WEB_IMAGE}}}));
 else if(args[0]==='compose'&&args[1]==='pull'&&process.env.MOCK_PULL_FAIL==='1') process.exit(1);
@@ -49,20 +48,19 @@ else if(args[0]==='compose'&&args[1]==='run'&&process.env.MOCK_CONFIG_FAIL==='1'
 else if(args[0]==='compose'&&args[1]==='exec'&&process.env.MOCK_HEALTH_FAIL==='1') process.exit(1);
 `, { mode: 0o755 });
   await writeFile(join(bin, 'sleep'), '#!/bin/sh\nexit 0\n', { mode: 0o755 });
-  const image = 'ghcr.io/hkfree/web-druzstvo@sha256:' + 'a'.repeat(64);
-  const run = (sha = target, extra = {}) => exec('bash', [script, sha, live, image], { env: {
-    ...process.env, PATH: bin + ':' + process.env.PATH, MOCK_DOCKER_LOG: log, MOCK_REVISION: target, ...extra,
+  const run = (sha = target, extra = {}) => exec('bash', [script, sha, live], { env: {
+    ...process.env, PATH: bin + ':' + process.env.PATH, MOCK_DOCKER_LOG: log, ...extra,
   } });
   const commands = async () => (await readFile(log, 'utf8')).trim().split('\n').map(line => JSON.parse(line));
-  return { live, old, target, image, git, run, commands };
+  return { live, old, target, git, run, commands };
 }
 
-test('deploy uses a tested image digest, keeps server secrets/content, pulls before switching and checks the prefix', async t => {
+test('deploy pulls latest before switching, preserves the entire env/content and checks the prefix', async t => {
   const f = await fixture(t);
   const result = await f.run();
   assert.equal(await f.git(f.live, 'rev-parse', 'HEAD'), f.target);
   assert.equal(await readFile(join(f.live, 'version'), 'utf8'), 'new');
-  assert.equal(await readFile(join(f.live, '.env'), 'utf8'), `OIDC_CLIENT_SECRET=local-test-only\nBASE_PATH=/v2\nWEB_IMAGE=${f.image}\n`);
+  assert.equal(await readFile(join(f.live, '.env'), 'utf8'), 'OIDC_CLIENT_SECRET=local-test-only\nBASE_PATH=/v2\nWEB_IMAGE=ghcr.io/hkfree/web-druzstvo:latest\n');
   assert.equal(await readFile(join(f.live, 'data/editor-content'), 'utf8'), 'Keep my content');
   const commands = await f.commands();
   const pull = commands.findIndex(args => args[1] === 'pull');
@@ -83,19 +81,12 @@ test('deploy refuses dirty checkouts and does not overwrite local edits', async 
   assert.equal(await f.git(f.live, 'rev-parse', 'HEAD'), f.old);
 });
 
-test('image persistence preserves existing env bytes and duplicate image keys abort before activation', async t => {
+test('deploy never adds or rewrites image settings in the server environment', async t => {
   const f = await fixture(t);
   const original = '# server comment\r\nOIDC_CLIENT_SECRET="test-only # value"\r\nBASE_PATH=/v2\r\n';
   await writeFile(join(f.live, '.env'), original);
-  await f.run();
-  assert.equal(await readFile(join(f.live, '.env'), 'utf8'), original + `WEB_IMAGE=${f.image}\n`);
-  const duplicate = await fixture(t);
-  const invalid = original + 'WEB_IMAGE=one\nWEB_IMAGE=two\n';
-  await writeFile(join(duplicate.live, '.env'), invalid);
-  await assert.rejects(duplicate.run(), error => /Duplicate WEB_IMAGE/.test(error.stderr));
-  assert.equal(await readFile(join(duplicate.live, '.env'), 'utf8'), invalid);
-  assert.equal(await duplicate.git(duplicate.live, 'rev-parse', 'HEAD'), duplicate.old);
-  assert.ok((await duplicate.commands()).every(args => args[1] !== 'up'));
+  await f.run('');
+  assert.equal(await readFile(join(f.live, '.env'), 'utf8'), original);
 });
 
 test('deploy refuses a different content volume and restores the previous checkout', async t => {
@@ -112,17 +103,15 @@ test('a failed pull leaves the existing container and environment alone and rest
   assert.equal(await f.git(f.live, 'rev-parse', 'HEAD'), f.old);
   assert.equal(await f.git(f.live, 'symbolic-ref', '--short', 'HEAD'), 'server-main');
   assert.ok((await f.commands()).every(args => args[1] !== 'up'));
-  assert.match(await readFile(join(f.live, '.env'), 'utf8'), /WEB_IMAGE=old-image/);
+  assert.match(await readFile(join(f.live, '.env'), 'utf8'), /WEB_IMAGE=ghcr.io\/hkfree\/web-druzstvo:latest/);
 });
 
-test('deploy refuses an image from another commit or invalid startup configuration before activation', async t => {
-  for (const extra of [{ MOCK_IMAGE_REVISION: 'b'.repeat(40) }, { MOCK_CONFIG_FAIL: '1' }]) {
-    const f = await fixture(t);
-    await assert.rejects(f.run(f.target, extra));
-    assert.equal(await f.git(f.live, 'rev-parse', 'HEAD'), f.old);
-    assert.ok((await f.commands()).every(args => args[1] !== 'up'));
-    assert.match(await readFile(join(f.live, '.env'), 'utf8'), /WEB_IMAGE=old-image/);
-  }
+test('invalid startup configuration aborts before activation and preserves the env', async t => {
+  const f = await fixture(t);
+  await assert.rejects(f.run(f.target, { MOCK_CONFIG_FAIL: '1' }));
+  assert.equal(await f.git(f.live, 'rev-parse', 'HEAD'), f.old);
+  assert.ok((await f.commands()).every(args => args[1] !== 'up'));
+  assert.match(await readFile(join(f.live, '.env'), 'utf8'), /WEB_IMAGE=ghcr.io\/hkfree\/web-druzstvo:latest/);
 });
 
 test('a failed HTTP check reports failure instead of pretending rollback succeeded', async t => {

@@ -42,7 +42,7 @@ Výchozí údaje jsou převzaté ze [současné kontaktní stránky družstva](h
 Potřebujete server s **Docker Compose** a **Apache2**, který pro veřejnou doménu zajišťuje HTTPS vaším vlastním certifikátem. Nemůže to být hosting určený pouze pro statické HTML; aplikace musí na serveru běžet a mít trvalé úložiště. Následující kroky provádí správce jednou, nikoli redaktor při úpravách.
 
 1. Nahrajte projekt na server (nebo ho naklonujte) a v jeho adresáři zkopírujte `.env.example` do `.env`.
-2. V `.env` nastavte skutečnou `DOMAIN`, `BASE_PATH`, `WEB_IMAGE` (digest publikovaný CI, viz migrace níže) a OIDC údaje podle následující části. Soubor s tajnými údaji nesdílejte ani necommitujte.
+2. V `.env` nastavte skutečnou `DOMAIN`, `BASE_PATH`, `WEB_IMAGE` (volitelné, výchozí `ghcr.io/hkfree/web-druzstvo:latest`) a OIDC údaje podle následující části. Soubor s tajnými údaji nesdílejte ani necommitujte.
 3. Případně nastavte `WEB_PORT` (výchozí `4321`) na volný port serveru. Compose publikuje pouze HTTP na `127.0.0.1:4321`; porty 80/443 obsluhuje váš Apache2.
 4. Spusťte:
 
@@ -153,13 +153,13 @@ Při úplně prvním spuštění se zkopírují tři ukázkové články z návr
 
 ### Aktualizace aplikace
 
-Novou verzi programu nasadí CI. Při ruční aktualizaci nastavte `WEB_IMAGE` na digest příslušného úspěšného CI a spusťte `docker compose pull web` a `docker compose up -d --no-build web`. Trvalý volume s články a obrázky zůstane zachovaný. Toto je potřeba jen při změně programu/designu; **úpravy novinek ani dokumentů nevyžadují aktualizaci nebo restart**.
+Novou verzi programu nasadí CI. Při ruční aktualizaci spusťte `docker compose pull web` a `docker compose up -d --no-build web`. Trvalý volume s články a obrázky zůstane zachovaný. Toto je potřeba jen při změně programu/designu; **úpravy novinek ani dokumentů nevyžadují aktualizaci nebo restart**.
 
 Pro kontrolu provozu použije správce `docker compose logs --tail=100 web`. Po prvním nasazení vyzkoušejte přihlášení, vytvoření článku i obrázek. Pak restartujte aplikaci a ověřte, že obsah zůstal. Docker konfigurace je připravená v repozitáři; DNS a skutečné nasazení musí správce ověřit na cílovém serveru.
 
 ## Automatické nasazení z GitHubu
 
-Workflow `.github/workflows/ci.yml` po úspěšných kontrolách nasadí push na `main` přes SSH jako `deploy` do `/opt/web-druzstvo`. Pull requesty a jiné větve se nenasazují. Nasazuje se přesný otestovaný commit, nikoli aktuální obsah větve přes `git pull`. Deploye jsou serializované; starší běh CI se přeskočí, pokud už `main` ukazuje na jiný commit. Používá se GitHub environment `production`. Po testech vznikne univerzální Docker obraz v `ghcr.io/hkfree/web-druzstvo` s tagem `sha-<celé SHA>`. CI otestuje přímo tento obraz v kořeni i pod `/v2/`, potom jej publikuje a do nasazení předá nezaměnitelný digest `@sha256:…`. Publikování na `main` probíhá i při vypnutém autodeployi; pull requesty nepublikují.
+Workflow `.github/workflows/ci.yml` po úspěšných kontrolách nasadí push na `main` přes SSH jako `deploy` do `/opt/web-druzstvo`. Pull requesty a jiné větve se nenasazují. Zdrojové soubory nasazení se přepnou na commit daného běhu CI; služba stáhne aktuální otestovaný obraz s tagem `latest`. Běhy CI stejné větve jsou serializované od testů přes publikování až po nasazení, aby se tag `latest` nepřepisoval souběžně; starší běh CI se přeskočí, pokud už `main` ukazuje na jiný commit. Používá se GitHub environment `production`. CI sestaví univerzální Docker obraz a otestuje jej v kořeni i pod `/v2/`. Až po úspěšných testech publikuje `ghcr.io/hkfree/web-druzstvo:latest`. Pomocný tag `sha-<celé SHA>` zůstává dostupný pro případ ručního návratu na starší verzi. Publikování na `main` probíhá i při vypnutém autodeployi; pull requesty nepublikují.
 
 ### Příprava serveru
 
@@ -208,43 +208,41 @@ Po nahrání této konfigurace a zapnutí přepínače další push na `main` sp
 
 ### Průběh a případné selhání
 
-Skript `deploy/deploy.sh` odmítne lokální změny v serverovém repozitáři a změnu volume s obsahem. Používá zámek, stáhne `main`, přepne checkout na otestované SHA a stáhne přesný obraz podle digestu za běhu dosavadního kontejneru. Ověří, že obraz má OCI label s odpovídajícím SHA a že konfigurace při spuštění je platná. V serverovém `.env` atomicky aktualizuje pouze `WEB_IMAGE`; všechny ostatní bajty, komentáře a secrets zachová. Až potom kontejner vymění; přepnutí může způsobit krátký výpadek. Poté ověří HTTP 200 a HTML z aplikace uvnitř kontejneru, se správným `BASE_PATH`. Tato kontrola neověřuje Apache ani veřejný certifikát.
+Skript `deploy/deploy.sh` odmítne lokální změny v serverovém repozitáři a změnu volume s obsahem. Používá zámek, stáhne `main`, přepne checkout na otestované SHA a stáhne `latest` za běhu dosavadního kontejneru. Ověří konfiguraci při spuštění. Serverový `.env` se nijak nepřepisuje. Až potom kontejner vymění; přepnutí může způsobit krátký výpadek. Poté ověří HTTP 200 a HTML z aplikace uvnitř kontejneru, se správným `BASE_PATH`. Tato kontrola neověřuje Apache ani veřejný certifikát.
 
-Při chybě před aktivací obnoví předchozí checkout. Při chybě spuštění nebo následné HTTP kontroly workflow skončí chybou; automatický rollback kontejneru se neprovádí. Zkontrolujte `docker compose ps` a `docker compose logs --tail=100 web`. Pro návrat nastavte v `.env` dřívější funkční `WEB_IMAGE` s digestem z Actions, použijte odpovídající `git checkout --detach ZNAME_FUNKCNI_SHA` a spusťte `docker compose pull web` a `docker compose up -d --no-build web`. Obsah volume zůstává zachovaný; jde o návrat aplikace, nikoli obnovu staršího redakčního obsahu.
+Při chybě před aktivací obnoví předchozí checkout. Při chybě spuštění nebo následné HTTP kontroly workflow skončí chybou; automatický rollback kontejneru se neprovádí. Zkontrolujte `docker compose ps` a `docker compose logs --tail=100 web`. Pro ruční návrat nastavte v `.env` `WEB_IMAGE=ghcr.io/hkfree/web-druzstvo:sha-ZNAME_FUNKCNI_SHA`, použijte odpovídající `git checkout --detach ZNAME_FUNKCNI_SHA` a spusťte `docker compose pull web` a `docker compose up -d --no-build web`. Obsah volume zůstává zachovaný; jde o návrat aplikace, nikoli obnovu staršího redakčního obsahu.
 
-Po úspěšném nasazení zůstává serverový checkout v režimu detached HEAD. Pro ruční aktualizaci použijte `git fetch origin main`, `git checkout --detach origin/main`, nastavte `WEB_IMAGE` z příslušného úspěšného CI a spusťte `docker compose pull web` a `docker compose up -d --no-build web`. Na serveru neupravujte sledované soubory; obsah spravujte přes redakci a konfiguraci přes ignorovaný `.env`.
+Po úspěšném nasazení zůstává serverový checkout v režimu detached HEAD. Pro ruční aktualizaci použijte `git fetch origin main`, `git checkout --detach origin/main` a spusťte `docker compose pull web` a `docker compose up -d --no-build web`. Na serveru neupravujte sledované soubory; obsah spravujte přes redakci a konfiguraci přes ignorovaný `.env`.
 
 ## Migrace existující produkce na obrazy z GitHubu
 
-1. **Před pushem této změny dočasně nastavte repository variable `DEPLOY_ENABLED=false`.** Starý web zůstane běžet a první CI může publikovat obraz bez zásahu do produkce.
-2. Pushněte změnu na `main`. V Actions musí projít joby `build` a `image`. Job `image` používá automatický `GITHUB_TOKEN` s `packages: write`; další publishing secret nepotřebuje. Organizace musí povolovat vytváření packages z Actions. V přehledu jobu najdete celý odkaz `ghcr.io/hkfree/web-druzstvo@sha256:…`.
-3. V GitHubu otevřete nově vytvořený **Package → Package settings → Change visibility → Public**. Veřejný repozitář automaticky neznamená veřejný obraz. Potom jej server stáhne bez přihlášení do GHCR. Pokud jej chcete ponechat privátní, přihlaste Docker **jako uživatel deploy** pomocí PAT classic s `read:packages` (a případnou autorizací SSO organizace); token nepatří do repozitáře ani do image. [Dokumentace GHCR](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry).
-4. Na serveru si jako `deploy` poznamenejte současné SHA, image a název volume a udělejte provozní zálohu obsahu. Ověřte `uname -m`: současná pipeline sestavuje `linux/amd64`, tedy `x86_64`. Pro ARM64 je nutné nejprve změnit runner/platformu obrazu. V `/opt/web-druzstvo` musí být čistý checkout; ponechte existující `.env` a původní Compose projekt. Nepoužívejte `docker compose down -v`.
-5. Stáhněte změnu a do `.env` **přidejte pouze `WEB_IMAGE` s publikovaným digestem**. `DOMAIN`, `BASE_PATH`, OIDC údaje, port a případný `COMPOSE_PROJECT_NAME` zachovejte podle stávající produkce. Apache zůstává stejný.
+1. Pro první migraci ponechte repository variable `DEPLOY_ENABLED=false`. Po pushi této změny počkejte, až úspěšně skončí joby `build` a `image`. CI nyní publikuje tag `ghcr.io/hkfree/web-druzstvo:latest` až po testech.
+2. Na GitHubu u příslušného **Package → Package settings** nastavte viditelnost **Public**. Server pak nepotřebuje přihlašovací token k GHCR. Pro privátní obraz je potřeba jednorázové `docker login ghcr.io` jako uživatel `deploy` s PAT classic s `read:packages` (a případnou autorizací SSO organizace). [Dokumentace GHCR](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry).
+3. Na serveru jako `deploy` v `/opt/web-druzstvo` ověřte čistý checkout a architekturu `x86_64` (`uname -m`; pipeline sestavuje `linux/amd64`). Poznamenejte si původní SHA a ověřte zálohu obsahu. Zachovejte stávající `.env` a název Compose projektu kvůli původnímu volume. Pokud už máte `WEB_IMAGE` nastavený na konkrétní digest, změňte jej **jednou ručně** na `ghcr.io/hkfree/web-druzstvo:latest`, případně tento řádek odstraňte — stejnou adresu má Compose jako výchozí.
+4. Stáhněte aktuální kód a spusťte nasazení:
 
 ```sh
 cd /opt/web-druzstvo
 git rev-parse HEAD
-docker compose ps
-docker inspect --format '{{range .Mounts}}{{if eq .Destination "/app/data"}}{{.Name}}{{end}}{{end}}' ID_STAVAJICIHO_KONTEJNERU
 git fetch origin main
-git checkout --detach SHA_USPESNEHO_CI
-# Upravte .env: WEB_IMAGE=ghcr.io/hkfree/web-druzstvo@sha256:DIGEST_Z_ACTIONS
+git checkout --detach origin/main
+bash deploy/deploy.sh
 ```
 
-První přepnutí doporučujeme spustit stejným kontrolovaným skriptem jako automatické nasazení:
+Skript stáhne `latest`, ověří zachování původního volume, spustí kontejner a zkontroluje HTTP odpověď. `.env` zůstane nedotčený; žádné SHA obrazu ani digesty se při běžném nasazení nepřepisují. Apache, `DOMAIN`, `BASE_PATH`, OIDC údaje a porty zůstávají podle současné produkce. `docker compose down -v` nepoužívejte.
+
+5. Ověřte veřejný web, přihlášení přes `/admin`, novinky a PDF. Potom nastavte `DEPLOY_ENABLED=true`. Další push na `main` už provede celý postup automaticky. Dosavadní SSH přístupy se nemění.
+
+Pro další ruční aktualizace stačí po úspěšném CI spustit `bash deploy/deploy.sh`. Pokud chcete pouze obnovit kontejner bez aktualizace zdrojových souborů nasazení, stačí:
 
 ```sh
-bash deploy/deploy.sh SHA_USPESNEHO_CI /opt/web-druzstvo ghcr.io/hkfree/web-druzstvo@sha256:DIGEST_Z_ACTIONS
-docker compose ps
-docker compose logs --tail=100 web
+docker compose pull web
+docker compose up -d --no-build web
 ```
 
-Skript ověří připojení stejného volume ještě před výměnou kontejneru. Ověřte veřejný web přes Apache, přihlášení přes `/admin`, otevření existující novinky a stažení PDF. Následně vraťte repository variable `DEPLOY_ENABLED=true`. Další push na `main` již sestaví a otestuje obraz na GitHubu, publikuje ho a server jej pouze stáhne a spustí. Existující SSH nastavení Actions → server i server → GitHub se nemění.
+Před ověřením první migrace nemažte původní lokální image. Pro návrat úplně první migrace lze použít původní zaznamenané SHA a jeho starý Compose soubor s `docker compose up -d --no-build web`; původní image i obsah volume zůstávají zachované. U novějších verzí lze výjimečně vybrat dřívější `sha-…` tag podle postupu výše; pro návrat k běžným aktualizacím pak obnovte `WEB_IMAGE=ghcr.io/hkfree/web-druzstvo:latest`.
 
-Před prvním ověřením nemažte původní lokálně sestavený image. Pokud bude nutné vrátit úplně první migraci, přepněte checkout na původní zaznamenané SHA a s jeho starým Compose souborem spusťte `docker compose up -d --no-build web`; využije původní lokální image a stejné volume. Nové nastavení `WEB_IMAGE` starší Compose ignoruje. U dalších verzí použijte postup návratu na předchozí digest popsaný výše.
-
-Při úplně první instalaci bez existujícího kontejneru se skript záměrně nespustí; po nastavení `.env` použijte příkazy z oddílu jednorázového nasazení.
+Při úplně první instalaci bez existujícího kontejneru použijte příkazy z oddílu jednorázového nasazení; migrační skript vyžaduje existující volume s obsahem.
 
 ### Konfigurace univerzálního obrazu
 

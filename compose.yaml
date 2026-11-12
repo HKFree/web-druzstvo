@@ -1,6 +1,6 @@
 services:
   web:
-    image: ${WEB_IMAGE:?Nastavte WEB_IMAGE na publikovaný obraz v souboru .env}
+    image: ${WEB_IMAGE:-ghcr.io/hkfree/web-druzstvo:latest}
     restart: unless-stopped
     ports:
       - '127.0.0.1:${WEB_PORT:-4321}:4321'
